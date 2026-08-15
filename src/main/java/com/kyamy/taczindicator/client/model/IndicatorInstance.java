@@ -92,7 +92,7 @@ public class IndicatorInstance {
         }
 
         if (this.hitArmor && IndicatorConfig.isShowArmorDamageIcon() && !this.isArmorPiercing) {
-            numText += " §7🛡️";
+            numText += " §7\uD83D\uDEE1";
         }
 
         this.formattedText = numText;

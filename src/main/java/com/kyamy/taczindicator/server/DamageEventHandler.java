@@ -13,6 +13,7 @@ import net.minecraft.world.entity.TraceableEntity;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.event.entity.living.LivingDamageEvent;
+import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.entity.living.LivingHurtEvent;
 import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -23,8 +24,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * サーバー側でダメージイベントを検知し、攻撃元プレイヤーへインジケータ情報を送信するハンドラ
- * TaCZ銃器のヘッドショットおよびクリティカルを高精度に判定
+ * サーバー側でダメージイベントおよびキルイベントを高精度に検知し、攻撃元プレイヤーへパケット送信するハンドラ
  */
 public class DamageEventHandler {
 
@@ -39,6 +39,44 @@ public class DamageEventHandler {
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onLivingHurt(LivingHurtEvent event) {
         handleDamage(event.getEntity(), event.getSource(), event.getAmount());
+    }
+
+    /**
+     * 確実なキル確定イベント (LivingDeathEvent)
+     */
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public static void onLivingDeath(LivingDeathEvent event) {
+        LivingEntity victim = event.getEntity();
+        if (victim == null || victim.level().isClientSide() || event.getSource() == null) {
+            return;
+        }
+
+        Entity attacker = event.getSource().getEntity();
+        Entity directEntity = event.getSource().getDirectEntity();
+
+        ServerPlayer attackingPlayer = resolvePlayerAttacker(victim, attacker, directEntity);
+        if (attackingPlayer == null) {
+            return;
+        }
+
+        Vec3 eyePos = victim.getEyePosition();
+        String victimName = victim.getDisplayName().getString();
+
+        DamageIndicatorPacket packet = new DamageIndicatorPacket(
+                victim.getId(),
+                eyePos.x, eyePos.y, eyePos.z,
+                0.0f,
+                false,
+                false,
+                false,
+                false,
+                false,
+                true,
+                victimName
+        );
+
+        ModMessages.sendToPlayer(packet, attackingPlayer);
+        TaCZIndicatorMod.LOGGER.debug("Sent kill packet: victim={}, player={}", victimName, attackingPlayer.getName().getString());
     }
 
     private static void handleDamage(LivingEntity victim, DamageSource source, float damage) {
@@ -68,7 +106,6 @@ public class DamageEventHandler {
         boolean isCritical = isCriticalDamage(attackingPlayer, source, directEntity, isTaCZ);
         boolean isArmorPiercing = isArmorPiercingDamage(source, directEntity);
         boolean hitArmor = victim.getArmorValue() > 0;
-        boolean isKill = (victim.getHealth() - damage <= 0.001f) || victim.isDeadOrDying();
         String victimName = victim.getDisplayName().getString();
 
         Vec3 eyePos = victim.getEyePosition();
@@ -85,13 +122,13 @@ public class DamageEventHandler {
                 isTaCZ,
                 isArmorPiercing,
                 hitArmor,
-                isKill,
+                false, // ダメージイベントではキル判定を行わない (LivingDeathEventで厳密判定)
                 victimName
         );
 
         ModMessages.sendToPlayer(packet, attackingPlayer);
-        TaCZIndicatorMod.LOGGER.debug("Sent damage packet: victim={}, dmg={}, HS={}, Crit={}, AP={}, Kill={}, player={}",
-                victim.getId(), damage, isHeadshot, isCritical, isArmorPiercing, isKill, attackingPlayer.getName().getString());
+        TaCZIndicatorMod.LOGGER.debug("Sent damage packet: victim={}, dmg={}, HS={}, Crit={}, AP={}, player={}",
+                victim.getId(), damage, isHeadshot, isCritical, isArmorPiercing, attackingPlayer.getName().getString());
     }
 
     private static boolean isArmorPiercingDamage(DamageSource source, Entity directEntity) {
@@ -182,7 +219,6 @@ public class DamageEventHandler {
         double eyeY = victim.getEyeY();
         if (directEntity != null) {
             double bulletY = directEntity.getY();
-            // 弾丸のY座標がモブの目線付近（目線-0.3ブロック以上）であればヘッドショット
             if (bulletY >= eyeY - 0.35) {
                 return true;
             }
@@ -279,7 +315,6 @@ public class DamageEventHandler {
             }
         }
 
-        // TaCZ Bullet Entity (getShooter / getOwner メソッドのリフレクション解決)
         if (directEntity != null) {
             ServerPlayer shooter = tryExtractPlayer(victim, directEntity);
             if (shooter != null) {

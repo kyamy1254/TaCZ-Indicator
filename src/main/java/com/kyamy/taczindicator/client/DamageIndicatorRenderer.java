@@ -92,12 +92,6 @@ public class DamageIndicatorRenderer {
             // ポップアップバウンスアニメーション
             scale *= indicator.getInterpolatedPopScale(partialTick);
 
-            // ヘッドショット・クリティカル時は少し大きめに強調
-            if (indicator.isHeadshot()) {
-                scale *= 1.30D;
-            } else if (indicator.isCritical()) {
-                scale *= 1.15D;
-            }
 
             poseStack.pushPose();
             poseStack.translate(relX, relY, relZ);

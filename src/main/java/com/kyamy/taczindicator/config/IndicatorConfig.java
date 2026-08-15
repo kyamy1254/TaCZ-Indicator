@@ -43,7 +43,7 @@ public class IndicatorConfig {
     public static boolean isEnabled() { return CLIENT.isEnabled(); }
     public static boolean isOnlyPlayerDamage() { return CLIENT.isOnlyPlayerDamage(); }
     public static boolean isOnlyTaczDamage() { return CLIENT.isOnlyTaczDamage(); }
-    public static boolean isShowModeOnJoin() { return CLIENT.isShowModeOnJoin(); }
+    public static boolean isDebugMode() { return CLIENT.isDebugMode(); }
 
     // [display]
     public static RenderMode getRenderMode() { return CLIENT.getRenderMode(); }
@@ -85,7 +85,7 @@ public class IndicatorConfig {
         public final ForgeConfigSpec.BooleanValue enabled;
         public final ForgeConfigSpec.BooleanValue onlyPlayerDamage;
         public final ForgeConfigSpec.BooleanValue onlyTaczDamage;
-        public final ForgeConfigSpec.BooleanValue showModeOnJoin;
+        public final ForgeConfigSpec.BooleanValue debugMode;
 
         // [display] 表示動作設定
         public final ForgeConfigSpec.EnumValue<RenderMode> renderMode;
@@ -142,9 +142,9 @@ public class IndicatorConfig {
                     .comment("TaCZの銃器によるダメージのみを表示するかどうか (true: 銃撃のみ, false: 近接・魔法等も表示)")
                     .define("onlyTaczDamage", false);
 
-            showModeOnJoin = builder
-                    .comment("ワールド参加時に動作モード（Server同期 / Client単体）をチャットに案内するかどうか")
-                    .define("showModeOnJoin", true);
+            debugMode = builder
+                    .comment("デバッグモード: ワールド参加時の動作モード案内やログ詳細出力を有効化するかどうか")
+                    .define("debugMode", false);
 
             builder.pop();
 
@@ -273,7 +273,7 @@ public class IndicatorConfig {
                     .define("showArmorPiercingIcon", true);
 
             showArmorDamageIcon = builder
-                    .comment("防具装備モブに命中した際に防具軽減アイコン(🛡️)を表示するかどうか")
+                    .comment("防具装備モブに命中した際に防具軽減アイコン(🛡)を表示するかどうか")
                     .define("showArmorDamageIcon", true);
 
             normalDamageColor = builder
@@ -309,8 +309,8 @@ public class IndicatorConfig {
         public boolean isOnlyTaczDamage() {
             try { return onlyTaczDamage != null && onlyTaczDamage.get(); } catch (Exception e) { return false; }
         }
-        public boolean isShowModeOnJoin() {
-            try { return showModeOnJoin != null && showModeOnJoin.get(); } catch (Exception e) { return true; }
+        public boolean isDebugMode() {
+            try { return debugMode != null && debugMode.get(); } catch (Exception e) { return false; }
         }
         public RenderMode getRenderMode() {
             try { return renderMode != null ? renderMode.get() : RenderMode.HUD_CROSSHAIR; } catch (Exception e) { return RenderMode.HUD_CROSSHAIR; }

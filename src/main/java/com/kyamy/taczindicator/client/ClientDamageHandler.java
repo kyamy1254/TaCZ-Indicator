@@ -70,7 +70,10 @@ public class ClientDamageHandler {
         }
 
         packetProcessedTicks.put(entityId, clientTickCount);
-        DamageIndicatorManager.getInstance().addIndicator(entityId, x, y, z, damage, isHeadshot, isCritical, isTaCZ, isArmorPiercing, hitArmor);
+
+        if (damage > 0.001f) {
+            DamageIndicatorManager.getInstance().addIndicator(entityId, x, y, z, damage, isHeadshot, isCritical, isTaCZ, isArmorPiercing, hitArmor);
+        }
 
         if (isKill && IndicatorConfig.isShowKillAlert()) {
             DamageIndicatorManager.getInstance().addKillAlert(victimName);
@@ -143,10 +146,10 @@ public class ClientDamageHandler {
             return;
         }
 
-        // ワールド参加時の案内通知（1回のみ）
+        // デバッグモード時のみワールド参加時の案内通知（1回のみ）
         if (!joinMessageShown && clientTickCount > 40 && mc.gui != null && mc.gui.getChat() != null) {
             joinMessageShown = true;
-            if (IndicatorConfig.isShowModeOnJoin()) {
+            if (IndicatorConfig.isDebugMode()) {
                 sendModeStatusMessage(localPlayer);
             }
         }
@@ -189,7 +192,8 @@ public class ClientDamageHandler {
                                 hitArmor
                         );
 
-                        if ((entity.isDeadOrDying() || currentHealth <= 0.0f) && IndicatorConfig.isShowKillAlert()) {
+                        // 厳密なクライアントキル判定（deathTime == 1 かつ プレイヤー起因）
+                        if (entity.isDeadOrDying() && entity.deathTime == 1 && IndicatorConfig.isShowKillAlert()) {
                             DamageIndicatorManager.getInstance().addKillAlert(entity.getDisplayName().getString());
                         }
                     }
@@ -230,7 +234,6 @@ public class ClientDamageHandler {
             double dist = toEntity.length();
             if (dist < 64.0 && dist > 0.1) {
                 double dot = lookVec.dot(toEntity.normalize());
-                // 視野角約40度以内
                 if (dot > 0.75) {
                     return true;
                 }

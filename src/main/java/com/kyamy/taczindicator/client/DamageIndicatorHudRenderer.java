@@ -133,13 +133,8 @@ public class DamageIndicatorHudRenderer {
                 drawX = 0;
             }
 
-            // スケール計算（ポップバウンス + ヘッドショット/クリティカル強調）
+            // スケール計算（ポップバウンス）
             float dynamicScale = (float) (baseHudScale * indicator.getInterpolatedPopScale(partialTick));
-            if (indicator.isHeadshot()) {
-                dynamicScale *= 1.25f;
-            } else if (indicator.isCritical()) {
-                dynamicScale *= 1.15f;
-            }
 
             // アルファ値とカラーの計算
             float alpha = indicator.getAlpha(partialTick);
