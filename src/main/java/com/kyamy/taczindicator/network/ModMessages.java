@@ -35,9 +35,17 @@ public class ModMessages {
                 .encoder(DamageIndicatorPacket::toBytes)
                 .consumerMainThread(DamageIndicatorPacket::handle)
                 .add();
+
+        net.messageBuilder(ServerHandshakePacket.class, id(), NetworkDirection.PLAY_TO_CLIENT)
+                .decoder(ServerHandshakePacket::new)
+                .encoder(ServerHandshakePacket::toBytes)
+                .consumerMainThread(ServerHandshakePacket::handle)
+                .add();
     }
 
     public static <MSG> void sendToPlayer(MSG message, ServerPlayer player) {
-        INSTANCE.send(PacketDistributor.PLAYER.with(() -> player), message);
+        if (INSTANCE != null && player != null) {
+            INSTANCE.send(PacketDistributor.PLAYER.with(() -> player), message);
+        }
     }
 }

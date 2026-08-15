@@ -22,7 +22,7 @@ import java.util.Map;
 
 /**
  * クライアント側でのダメージ検知・パケットディスパッチャ
- * 動作モード（Server同期 vs Client単体）の自動判定とプレイヤー与ダメージ限定フィルタを完備
+ * サーバーハンドシェイクによる即時同期判定とプレイヤー与ダメージ限定フィルタを完備
  */
 @Mod.EventBusSubscriber(modid = TaCZIndicatorMod.MOD_ID, value = Dist.CLIENT)
 public class ClientDamageHandler {
@@ -58,7 +58,16 @@ public class ClientDamageHandler {
     private static long clientTickCount = 0;
 
     /**
-     * サーバーからのパケット受信ハンドラ (Server同期モード確定)
+     * サーバー参加時のハンドシェイク受信ハンドラ (即時SERVER_SYNCEDモード確立)
+     */
+    public static void onServerHandshakeReceived() {
+        serverPacketReceived = true;
+        currentOperatingMode = OperatingMode.SERVER_SYNCED;
+        TaCZIndicatorMod.LOGGER.info("[TaCZ Indicator] Server sync confirmed on connect! Operating mode: SERVER_SYNCED");
+    }
+
+    /**
+     * サーバーからのダメージ・キルパケット受信ハンドラ
      */
     public static void handlePacket(int entityId, double x, double y, double z, float damage,
                                     boolean isHeadshot, boolean isCritical, boolean isTaCZ,
@@ -66,7 +75,6 @@ public class ClientDamageHandler {
         if (!serverPacketReceived) {
             serverPacketReceived = true;
             currentOperatingMode = OperatingMode.SERVER_SYNCED;
-            TaCZIndicatorMod.LOGGER.info("TaCZ Indicator: Server packet received. Operating mode switched to SERVER_SYNCED.");
         }
 
         packetProcessedTicks.put(entityId, clientTickCount);

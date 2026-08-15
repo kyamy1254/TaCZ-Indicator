@@ -3,6 +3,7 @@ package com.kyamy.taczindicator.server;
 import com.kyamy.taczindicator.TaCZIndicatorMod;
 import com.kyamy.taczindicator.network.DamageIndicatorPacket;
 import com.kyamy.taczindicator.network.ModMessages;
+import com.kyamy.taczindicator.network.ServerHandshakePacket;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.damagesource.DamageSource;
@@ -14,30 +15,34 @@ import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.event.entity.living.LivingDamageEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
-import net.minecraftforge.event.entity.living.LivingHurtEvent;
+import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * サーバー側でダメージイベントおよびキルイベントを高精度に検知し、攻撃元プレイヤーへパケット送信するハンドラ
  */
 public class DamageEventHandler {
 
-    // 同一Tick内の重複送信防止
-    private static final Map<Integer, Long> lastHandledTick = new ConcurrentHashMap<>();
-
-    @SubscribeEvent(priority = EventPriority.LOWEST)
-    public static void onLivingDamage(LivingDamageEvent event) {
-        handleDamage(event.getEntity(), event.getSource(), event.getAmount());
+    /**
+     * プレイヤーがサーバーに参加した際に同期ハンドシェイクパケットを即時送信
+     */
+    @SubscribeEvent
+    public static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            ModMessages.sendToPlayer(new ServerHandshakePacket(), player);
+            TaCZIndicatorMod.LOGGER.info("[TaCZ Indicator] Sent server handshake packet to player: {}", player.getName().getString());
+        }
     }
 
+    /**
+     * 最終計算後のダメージイベントのみを購読 (重複・不正確な事前イベントは除外)
+     */
     @SubscribeEvent(priority = EventPriority.LOWEST)
-    public static void onLivingHurt(LivingHurtEvent event) {
+    public static void onLivingDamage(LivingDamageEvent event) {
         handleDamage(event.getEntity(), event.getSource(), event.getAmount());
     }
 
@@ -84,12 +89,6 @@ public class DamageEventHandler {
             return;
         }
 
-        long currentTick = victim.level().getGameTime();
-        Long lastTick = lastHandledTick.get(victim.getId());
-        if (lastTick != null && lastTick == currentTick) {
-            return;
-        }
-
         Entity attacker = source.getEntity();
         Entity directEntity = source.getDirectEntity();
 
@@ -98,11 +97,9 @@ public class DamageEventHandler {
             return;
         }
 
-        lastHandledTick.put(victim.getId(), currentTick);
-
         // TaCZダメージ判定およびヘッドショット・クリティカル判定
         boolean isTaCZ = isTaCZDamage(source, directEntity);
-        boolean isHeadshot = isHeadshotDamage(victim, source, directEntity);
+        boolean isHeadshot = isHeadshotDamage(source, directEntity);
         boolean isCritical = isCriticalDamage(attackingPlayer, source, directEntity, isTaCZ);
         boolean isArmorPiercing = isArmorPiercingDamage(source, directEntity);
         boolean hitArmor = victim.getArmorValue() > 0;
@@ -122,7 +119,7 @@ public class DamageEventHandler {
                 isTaCZ,
                 isArmorPiercing,
                 hitArmor,
-                false, // ダメージイベントではキル判定を行わない (LivingDeathEventで厳密判定)
+                false,
                 victimName
         );
 
@@ -177,26 +174,27 @@ public class DamageEventHandler {
     }
 
     /**
-     * ヘッドショット判定 (DamageType、リフレクション、弾丸エンティティ、着弾幾何位置の総合判定)
+     * 正確なヘッドショット判定 (DamageType、TaCZ専用フラグ、リフレクションによる厳密判定)
+     * 高低差による誤判定を招く幾何学的推定は完全に撤廃
      */
-    private static boolean isHeadshotDamage(LivingEntity victim, DamageSource source, Entity directEntity) {
-        // 1. DamageSourceのMsgIdおよびDamageType判定
+    private static boolean isHeadshotDamage(DamageSource source, Entity directEntity) {
+        // 1. DamageSourceのMsgIdおよびDamageType判定 (TaCZのtacz:bullet_headshot等)
         String msgId = source.getMsgId();
         if (msgId != null) {
             String lower = msgId.toLowerCase();
-            if (lower.contains("headshot") || lower.contains("head_shot") || lower.contains("head")) {
+            if (lower.contains("headshot") || lower.contains("head_shot")) {
                 return true;
             }
         }
 
         if (source.typeHolder() != null && source.typeHolder().unwrapKey().isPresent()) {
             String location = source.typeHolder().unwrapKey().get().location().toString().toLowerCase();
-            if (location.contains("headshot") || location.contains("head_shot") || location.contains("head")) {
+            if (location.contains("headshot") || location.contains("head_shot")) {
                 return true;
             }
         }
 
-        // 2. DirectEntity (弾丸など) のリフレクション判定
+        // 2. DirectEntity (弾丸など) のヘッドショットフラグ判定
         if (directEntity != null) {
             if (checkBooleanGetter(directEntity, "isHeadshot", "isHeadShot", "getHeadshot", "hasHeadshot", "isHead")) {
                 return true;
@@ -212,20 +210,6 @@ public class DamageEventHandler {
 
         // 3. DamageSourceのリフレクション判定
         if (checkBooleanGetter(source, "isHeadshot", "isHeadShot", "getHeadshot", "isHead")) {
-            return true;
-        }
-
-        // 4. 弾丸着弾位置と被弾モブの頭部（EyeHeight）の幾何学的フォールバック判定
-        double eyeY = victim.getEyeY();
-        if (directEntity != null) {
-            double bulletY = directEntity.getY();
-            if (bulletY >= eyeY - 0.35) {
-                return true;
-            }
-        }
-
-        Vec3 srcPos = source.getSourcePosition();
-        if (srcPos != null && srcPos.y >= eyeY - 0.35) {
             return true;
         }
 
