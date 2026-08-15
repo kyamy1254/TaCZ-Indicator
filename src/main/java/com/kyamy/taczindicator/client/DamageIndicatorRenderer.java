@@ -19,6 +19,7 @@ import java.util.List;
 
 /**
  * 3Dワールド空間における距離非依存ダメージインジケータ描画レンダラー
+ * 画面上で常に同一の大きさで表示（Constant Screen Size）されるビルボードスケーリングを実装
  */
 @Mod.EventBusSubscriber(modid = "taczindicator", value = Dist.CLIENT)
 public class DamageIndicatorRenderer {
@@ -62,10 +63,10 @@ public class DamageIndicatorRenderer {
         Font font = mc.font;
         float partialTick = event.getPartialTick();
 
-        boolean enableConstantSize = IndicatorConfig.CLIENT.isConstantSize();
-        double baseScale = IndicatorConfig.CLIENT.getBaseScale();
-        double distanceScaleFactor = IndicatorConfig.CLIENT.getDistanceScaleFactor();
-        boolean enableXRay = IndicatorConfig.CLIENT.isXRay();
+        boolean enableConstantSize = IndicatorConfig.isConstantSize();
+        double baseScale = IndicatorConfig.getBaseScale();
+        double distanceScaleFactor = IndicatorConfig.getDistanceScaleFactor();
+        boolean enableXRay = IndicatorConfig.isXRay();
 
         for (IndicatorInstance indicator : indicators) {
             double posX = indicator.getX();
@@ -82,16 +83,18 @@ public class DamageIndicatorRenderer {
                 continue;
             }
 
-            // 距離非依存スケール計算 (透視投影の距離減衰を相殺)
+            // 距離非依存スケール計算 (透視投影の距離減衰を相殺し、画面上で常に同じ大きさを維持)
             double scale = baseScale;
             if (enableConstantSize) {
-                // 距離に正比例させて拡大することで画面上の見かけのサイズを完全に一定に維持
                 scale = baseScale * Math.max(1.0D, distance * distanceScaleFactor);
             }
 
+            // ポップアップバウンスアニメーション
+            scale *= indicator.getInterpolatedPopScale(partialTick);
+
             // ヘッドショット・クリティカル時は少し大きめに強調
             if (indicator.isHeadshot()) {
-                scale *= 1.35D;
+                scale *= 1.30D;
             } else if (indicator.isCritical()) {
                 scale *= 1.15D;
             }

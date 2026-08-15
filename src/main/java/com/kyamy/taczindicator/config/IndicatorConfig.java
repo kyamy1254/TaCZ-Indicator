@@ -12,9 +12,9 @@ public class IndicatorConfig {
     public static final Client CLIENT;
 
     public enum RenderMode {
-        HUD_PROJECTED,
         HUD_CROSSHAIR,
-        WORLD_3D
+        WORLD_3D,
+        HUD_PROJECTED
     }
 
     public enum ConsecutiveMode {
@@ -33,7 +33,7 @@ public class IndicatorConfig {
         ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, CLIENT_SPEC, "taczindicator-client.toml");
     }
 
-    // --- 静的ヘルパーメソッド（IDE互換性と簡潔なアクセスのため） ---
+    // --- 静的ヘルパーメソッド ---
     public static boolean isEnabled() { return CLIENT.isEnabled(); }
     public static RenderMode getRenderMode() { return CLIENT.getRenderMode(); }
     public static ConsecutiveMode getConsecutiveMode() { return CLIENT.getConsecutiveMode(); }
@@ -94,8 +94,8 @@ public class IndicatorConfig {
                     .define("enabled", true);
 
             renderMode = builder
-                    .comment("描画モード: HUD_PROJECTED (画面HUD上に投影), HUD_CROSSHAIR (照準横のHUD), WORLD_3D (3Dワールド空間)")
-                    .defineEnum("renderMode", RenderMode.HUD_PROJECTED);
+                    .comment("描画モード: HUD_CROSSHAIR (照準横のHUD・推奨), WORLD_3D (3Dワールド空間・画面上同一サイズ), HUD_PROJECTED (画面HUD上に3D投影)")
+                    .defineEnum("renderMode", RenderMode.HUD_CROSSHAIR);
 
             consecutiveMode = builder
                     .comment("連続ダメージ処理モード: ACCUMULATE (加算・累積表示), SCROLL_UP (古い数値を上へはけさせる/スクロール), OFF (個別表示)")
@@ -107,23 +107,23 @@ public class IndicatorConfig {
 
             hudScale = builder
                     .comment("HUD表示時の文字拡大スケール (1.0 = 標準)")
-                    .defineInRange("hudScale", 1.0D, 0.2D, 4.0D);
+                    .defineInRange("hudScale", 1.15D, 0.2D, 4.0D);
 
             scrollSpacing = builder
                     .comment("SCROLL_UPモードで古いインジケータを上に押し上げる間隔（ピクセル）")
-                    .defineInRange("scrollSpacing", 12.0D, 2.0D, 50.0D);
+                    .defineInRange("scrollSpacing", 14.0D, 2.0D, 50.0D);
 
             crosshairOffsetX = builder
-                    .comment("HUD_CROSSHAIRモード時の画面中心からのXオフセット（ピクセル）")
-                    .defineInRange("crosshairOffsetX", 15.0D, -300.0D, 300.0D);
+                    .comment("HUD_CROSSHAIRモード時の画面中心（レティクル）からのXオフセット（ピクセル）")
+                    .defineInRange("crosshairOffsetX", 18.0D, -300.0D, 300.0D);
 
             crosshairOffsetY = builder
-                    .comment("HUD_CROSSHAIRモード時の画面中心からのYオフセット（ピクセル）")
-                    .defineInRange("crosshairOffsetY", -8.0D, -300.0D, 300.0D);
+                    .comment("HUD_CROSSHAIRモード時の画面中心（レティクル）からのYオフセット（ピクセル）")
+                    .defineInRange("crosshairOffsetY", -4.0D, -300.0D, 300.0D);
 
             showHitCount = builder
                     .comment("加算モード時にヒット数を表示するかどうか (例: 45.0 x3)")
-                    .define("showHitCount", false);
+                    .define("showHitCount", true);
 
             enableConstantSize = builder
                     .comment("WORLD_3Dモード時: 距離に関わらず画面上で同じ大きさ（角度サイズ一定）で表示するかどうか")
@@ -167,15 +167,15 @@ public class IndicatorConfig {
 
             criticalDamageColor = builder
                     .comment("クリティカルダメージの色 (0xRRGGBB)")
-                    .defineInRange("criticalDamageColor", 0xFFFF55, 0, 0xFFFFFF);
+                    .defineInRange("criticalDamageColor", 0xFFCC00, 0, 0xFFFFFF);
 
             headshotDamageColor = builder
                     .comment("ヘッドショットダメージの色 (0xRRGGBB)")
-                    .defineInRange("headshotDamageColor", 0xFF2222, 0, 0xFFFFFF);
+                    .defineInRange("headshotDamageColor", 0xFF3333, 0, 0xFFFFFF);
 
             taczDamageColor = builder
                     .comment("TaCZ銃撃ダメージの色 (0xRRGGBB)")
-                    .defineInRange("taczDamageColor", 0xFFA500, 0, 0xFFFFFF);
+                    .defineInRange("taczDamageColor", 0xFFFFFF, 0, 0xFFFFFF);
 
             builder.pop();
         }
@@ -186,7 +186,7 @@ public class IndicatorConfig {
         }
 
         public RenderMode getRenderMode() {
-            try { return renderMode != null ? renderMode.get() : RenderMode.HUD_PROJECTED; } catch (Exception e) { return RenderMode.HUD_PROJECTED; }
+            try { return renderMode != null ? renderMode.get() : RenderMode.HUD_CROSSHAIR; } catch (Exception e) { return RenderMode.HUD_CROSSHAIR; }
         }
 
         public ConsecutiveMode getConsecutiveMode() {
@@ -198,23 +198,23 @@ public class IndicatorConfig {
         }
 
         public double getHudScale() {
-            try { return hudScale != null ? hudScale.get() : 1.0D; } catch (Exception e) { return 1.0D; }
+            try { return hudScale != null ? hudScale.get() : 1.15D; } catch (Exception e) { return 1.15D; }
         }
 
         public double getScrollSpacing() {
-            try { return scrollSpacing != null ? scrollSpacing.get() : 12.0D; } catch (Exception e) { return 12.0D; }
+            try { return scrollSpacing != null ? scrollSpacing.get() : 14.0D; } catch (Exception e) { return 14.0D; }
         }
 
         public double getCrosshairOffsetX() {
-            try { return crosshairOffsetX != null ? crosshairOffsetX.get() : 15.0D; } catch (Exception e) { return 15.0D; }
+            try { return crosshairOffsetX != null ? crosshairOffsetX.get() : 18.0D; } catch (Exception e) { return 18.0D; }
         }
 
         public double getCrosshairOffsetY() {
-            try { return crosshairOffsetY != null ? crosshairOffsetY.get() : -8.0D; } catch (Exception e) { return -8.0D; }
+            try { return crosshairOffsetY != null ? crosshairOffsetY.get() : -4.0D; } catch (Exception e) { return -4.0D; }
         }
 
         public boolean isShowHitCount() {
-            try { return showHitCount != null && showHitCount.get(); } catch (Exception e) { return false; }
+            try { return showHitCount != null && showHitCount.get(); } catch (Exception e) { return true; }
         }
 
         public boolean isConstantSize() {
@@ -254,15 +254,15 @@ public class IndicatorConfig {
         }
 
         public int getCriticalColor() {
-            try { return criticalDamageColor != null ? criticalDamageColor.get() : 0xFFFF55; } catch (Exception e) { return 0xFFFF55; }
+            try { return criticalDamageColor != null ? criticalDamageColor.get() : 0xFFCC00; } catch (Exception e) { return 0xFFCC00; }
         }
 
         public int getHeadshotColor() {
-            try { return headshotDamageColor != null ? headshotDamageColor.get() : 0xFF2222; } catch (Exception e) { return 0xFF2222; }
+            try { return headshotDamageColor != null ? headshotDamageColor.get() : 0xFF3333; } catch (Exception e) { return 0xFF3333; }
         }
 
         public int getTaczColor() {
-            try { return taczDamageColor != null ? taczDamageColor.get() : 0xFFA500; } catch (Exception e) { return 0xFFA500; }
+            try { return taczDamageColor != null ? taczDamageColor.get() : 0xFFFFFF; } catch (Exception e) { return 0xFFFFFF; }
         }
     }
 }

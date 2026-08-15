@@ -19,8 +19,7 @@ import java.util.List;
 
 /**
  * 2D HUDレイヤー上でのダメージインジケータ描画レンダラー
- * 投影HUDモードおよび照準HUDモード、ポップ・スクロールアニメーションをサポート
- * Embeddium/Oculus等のシェーダー・最適化MOD導入時でも確実に描画されるデュアルフック構造
+ * 照準（クロスヘア）横のHUD表示および投影HUDモードをサポート
  */
 @Mod.EventBusSubscriber(modid = TaCZIndicatorMod.MOD_ID, value = Dist.CLIENT)
 public class DamageIndicatorHudRenderer {
@@ -73,6 +72,7 @@ public class DamageIndicatorHudRenderer {
         for (IndicatorInstance indicator : indicators) {
             double posX;
             double posY;
+            int drawX;
 
             if (renderMode == IndicatorConfig.RenderMode.HUD_PROJECTED) {
                 // 3Dワールド座標から2D画面座標へ投影
@@ -88,10 +88,12 @@ public class DamageIndicatorHudRenderer {
 
                 posX = proj.getScreenX();
                 posY = proj.getScreenY() - indicator.getInterpolatedScrollY(partialTick);
+                drawX = -font.width(indicator.getFormattedText()) / 2;
             } else {
-                // HUD_CROSSHAIRモード (レティクル周辺)
+                // HUD_CROSSHAIRモード (レティクルの横にダメージ数値を表示)
                 posX = (screenWidth / 2.0) + IndicatorConfig.getCrosshairOffsetX();
                 posY = (screenHeight / 2.0) + IndicatorConfig.getCrosshairOffsetY() - indicator.getInterpolatedScrollY(partialTick);
+                drawX = 0; // クロスヘア右側から自然に配置
             }
 
             // スケール計算（ポップバウンス + ヘッドショット/クリティカル強調）
@@ -108,14 +110,11 @@ public class DamageIndicatorHudRenderer {
             int color = (indicator.getColor() & 0x00FFFFFF) | (alphaInt << 24);
 
             String text = indicator.getFormattedText();
-            int textWidth = font.width(text);
+            int drawY = -font.lineHeight / 2;
 
             poseStack.pushPose();
             poseStack.translate(posX, posY, 0.0);
             poseStack.scale(dynamicScale, dynamicScale, 1.0f);
-
-            int drawX = -textWidth / 2;
-            int drawY = -font.lineHeight / 2;
 
             // 影付きでテキストを描画
             guiGraphics.drawString(font, text, drawX, drawY, color, true);

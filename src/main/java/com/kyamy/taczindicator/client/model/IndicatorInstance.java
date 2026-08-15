@@ -68,18 +68,18 @@ public class IndicatorInstance {
         String numText = String.format(Locale.ROOT, formatString, this.damage);
 
         if (this.isHeadshot && IndicatorConfig.isShowHeadshotIcon()) {
-            numText = "§c[HS] §r" + numText;
+            numText = "§c🎯 §l" + numText + "§r";
         } else if (this.isCritical) {
-            numText = "§e★ §r" + numText;
+            numText = "§6★ §l" + numText + "§r";
         }
 
         if (IndicatorConfig.isShowHitCount() && this.hitCount > 1) {
-            numText += " §7x" + this.hitCount;
+            numText += " §7(x" + this.hitCount + ")";
         }
 
         this.formattedText = numText;
 
-        // カラーの決定 (優先度: Headshot > Critical > TaCZ > Normal)
+        // カラーの決定 (優先度: Headshot > Critical > Normal)
         if (this.isHeadshot) {
             this.color = IndicatorConfig.getHeadshotColor();
         } else if (this.isCritical) {
