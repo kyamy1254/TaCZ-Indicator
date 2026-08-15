@@ -8,7 +8,7 @@ import java.util.Locale;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * ダメージインジケータの計算ロジック、累積加算、スクロール処理、投影計算に関する単体テスト
+ * ダメージインジケータの計算ロジック、累積加算、スクロール処理、フォント表記、および幾何ヘッドショット判定に関する単体テスト
  */
 public class IndicatorLogicTest {
 
@@ -95,6 +95,53 @@ public class IndicatorLogicTest {
         // フォーマット検証
         String formatted = String.format(Locale.ROOT, "%.1f x%d", initialDamage, hitCount);
         assertEquals("57.5 x3", formatted);
+    }
+
+    @Test
+    @DisplayName("盾・盾貫通フォントの末尾（接尾辞）配置フォーマット検証")
+    void testShieldAndPenetrationSuffixFormatting() {
+        String iconShield = "\uE001";
+        String iconPenetration = "\uE002";
+
+        // 通常ダメージ + 盾貫通 (AP) -> 末尾に \uE002
+        float damage = 45.0f;
+        String textAP = String.format(Locale.ROOT, "%.1f", damage) + " §b" + iconPenetration;
+        assertEquals("45.0 §b\uE002", textAP);
+
+        // クリティカル + 盾貫通 (AP) -> 接頭辞★ + 末尾に \uE002
+        String textCritAP = "§6★ §l" + String.format(Locale.ROOT, "%.1f", damage) + "§r §b" + iconPenetration;
+        assertEquals("§6★ §l45.0§r §b\uE002", textCritAP);
+
+        // ヘッドショット + 通常防具軽減 (盾) -> 接頭辞☠ + 末尾に \uE001
+        String textHSShield = "§c☠ §l" + String.format(Locale.ROOT, "%.1f", damage) + "§r §f" + iconShield;
+        assertEquals("§c☠ §l45.0§r §f\uE001", textHSShield);
+    }
+
+    @Test
+    @DisplayName("幾何学的ヘッドショット判定モデルの検証")
+    void testGeometricHeadshotCalculation() {
+        double victimY = 64.0;
+        double victimEyeY = 65.62;
+        double victimHeight = 1.8;
+        double victimWidth = 0.6;
+
+        double headThresholdY = Math.max(victimY + victimHeight * 0.70, victimEyeY - 0.25);
+        // 64.0 + 1.26 = 65.26, 65.62 - 0.25 = 65.37 -> threshold is 65.37
+        assertEquals(65.37, headThresholdY, 1e-4);
+
+        // 頭部への着弾 (Y = 65.5) -> ヘッドショット合格
+        double hitYHead = 65.5;
+        assertTrue(hitYHead >= headThresholdY);
+
+        // 胴体への着弾 (Y = 64.8) -> 不合格
+        double hitYBody = 64.8;
+        assertFalse(hitYBody >= headThresholdY);
+
+        // 水平範囲チェック (中心からの距離)
+        double maxRadius = Math.max(0.5, victimWidth * 1.5);
+        assertEquals(0.9, maxRadius, 1e-4);
+        double distSqCenter = 0.2 * 0.2 + 0.1 * 0.1;
+        assertTrue(distSqCenter <= maxRadius * maxRadius);
     }
 
     @Test

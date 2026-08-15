@@ -251,9 +251,12 @@ public class IndicatorConfigScreen extends Screen {
 
         // サンプル1（AP弾）
         String sample1 = "45.0";
-        if (this.tempShowArmorPiercingIcon) sample1 = "§b🗡 §l" + sample1 + "§r";
         if (this.tempShowHitCount) sample1 += " §7(x2)";
-        if (this.tempShowArmorDamageIcon && !this.tempShowArmorPiercingIcon) sample1 += " §7🛡️";
+        if (this.tempShowArmorPiercingIcon) {
+            sample1 += " §b\uE002";
+        } else if (this.tempShowArmorDamageIcon) {
+            sample1 += " §f\uE001";
+        }
 
         // サンプル2（複数モブ被弾時の2行目スタック）
         String sample2 = "120.0";

@@ -1,0 +1,22 @@
+{
+  "providers": [
+    {
+      "type": "bitmap",
+      "file": "taczindicator:font/shield.png",
+      "ascent": 7,
+      "height": 8,
+      "chars": [
+        "\uE001"
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "taczindicator:font/shield_penetration.png",
+      "ascent": 7,
+      "height": 8,
+      "chars": [
+        "\uE002"
+      ]
+    }
+  ]
+}

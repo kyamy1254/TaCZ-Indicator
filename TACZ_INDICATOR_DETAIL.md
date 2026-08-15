@@ -3,79 +3,90 @@
 ## 1. 概要
 
 Minecraft Forge 1.20.1 環境において、TaCZ (Timeless and Classics Zero) の銃撃ダメージおよび通常ダメージを検知し、**2D HUDレイヤー上** または3D空間でダメージ数値をポップアップ表示するMODの仕様書です。
-連続射撃や連撃時の **加算表示（累積ダメージスタック）** および **古いインジケータの上方スクロール（はけ）** をサポートしています。
+連続射撃や連撃時の **加算表示（累積ダメージスタック）**、**古いインジケータの上方スクロール（はけ）**、**カスタムビットマップフォントによる盾・盾貫通アイコン表示**、および **TaCZイベント連携・多層リフレクション・幾何フォールバックによる高精度ヘッドショット判定** をサポートしています。
 
 ## 2. アーキテクチャ構成
 
 ### 2.1 サーバーサイド (`server`)
 
 - **`DamageEventHandler`**:
-  - `LivingDamageEvent` をキャッチし、攻撃者 (`ServerPlayer`)、被弾モブ (`victim.getId()`)、ダメージ量、ダメージソースを解析。
-  - TaCZの弾丸・ダメージソース（銃撃、ヘッドショット）やバニラのクリティカル攻撃を判別。
-  - 被弾モブの頭部位置座標を取得し、`DamageIndicatorPacket` を生成して攻撃者プレイヤーへパケット送信。
+  - `LivingDamageEvent` および `LivingDeathEvent` を購読し、攻撃元プレイヤー (`ServerPlayer`)、被弾モブ (`victim.getId()`)、ダメージ量、ダメージソースを高精度に解析。
+  - TaCZのAPIイベントキャッシュ (`TaCZCompatHandler`)、多層リフレクション探索、および着弾座標の幾何学判定を用いてヘッドショット・クリティカル・防具貫通（AP）を判定。
+  - `DamageIndicatorPacket` を生成して攻撃者プレイヤーへパケット送信。
+- **`TaCZCompatHandler`**:
+  - TaCZが環境に存在する場合、`com.tacz.guns.api.event.EntityHurtByGunEvent` (Pre/Post) の動的リスナーを登録。
+  - 被弾エンティティIDごとの高精度なヘッドショットフラグやAPフラグ、ヘッドショット倍率を短期キャッシュ。
 
 ### 2.2 ネットワーク層 (`network`)
 
 - **`ModMessages`**:
   - Forge `SimpleChannel` を使用したパケット通信路の定義。
 - **`DamageIndicatorPacket`**:
-  - 対象エンティティID (`int entityId`)、発生座標 $(X, Y, Z)$、ダメージ値 (float)、ヘッドショットフラグ (boolean)、クリティカルフラグ (boolean)、TaCZフラグ (boolean) をバイナリシリアライズ/デシリアライズ。
+  - 対象エンティティID (`int entityId`)、発生座標 $(X, Y, Z)$、ダメージ値 (float)、ヘッドショットフラグ (boolean)、クリティカルフラグ (boolean)、TaCZフラグ (boolean)、防具貫通フラグ (boolean)、防具被弾フラグ (boolean)、キルフラグ (boolean)、ターゲット名 (String) をバイナリシリアライズ/デシリアライズ。
+- **`ServerHandshakePacket`**:
+  - プレイヤー参加時にクライアントへ送信し、即時に `SERVER_SYNCED` モードを確立。
 
 ### 2.3 クライアントサイド (`client`)
 
 - **`IndicatorConfig`**:
-  - 描画モード (`renderMode`: HUD_PROJECTED / HUD_CROSSHAIR / WORLD_3D)
+  - 描画モード (`renderMode`: HUD_CROSSHAIR / HUD_PROJECTED / WORLD_3D)
   - 連続ダメージモード (`consecutiveMode`: ACCUMULATE / SCROLL_UP / OFF)
-  - コンボ持続時間、HUDスケール、スクロール間隔、カラー設定などの設定管理。
+  - コンボ持続時間、HUDスケール、スクロール間隔、カラー設定、各種アイコントグルの設定管理。
 - **`IndicatorInstance`**:
   - 個別のダメージ表示インスタンス。累積ダメージ計算、ヒット回数、上方スクロールオフセット、ポップアニメーション（バウンス拡大・減衰）、アルファ値フェードアウトを管理。
+  - **フォントアイコン配置**:
+    - 接頭辞 (Prefix): ヘッドショット (`§c☠ §l`)、クリティカル (`§6★ §l`)
+    - 接尾辞 (Suffix): ヒット数 (`§7(x2)`)、盾貫通 (`§b\uE002`)、防具軽減 (`§f\uE001`)
 - **`DamageIndicatorManager`**:
-  - アクティブなインジケータ群のライフサイクル管理。
-  - 同一ターゲットへの連続ヒット時の加算処理（ACCUMULATE）や古いインジケータの押し上げ処理（SCROLL_UP）を制御。
-- **`ScreenProjectionUtil`**:
-  - 3Dワールド座標からMinecraftの2D GUI画面座標への高精度な透視投影計算。
+  - アクティブなインジケータ群のライフサイクル管理。加算処理（ACCUMULATE）や古いインジケータの押し上げ処理（SCROLL_UP）を制御。
 - **`DamageIndicatorHudRenderer`**:
-  - `RenderGuiEvent.Post` でHUD上に2Dテキストを描画。鮮明なフォントとスムーズなアニメーションを提供。
+  - `RenderGuiEvent.Post` でHUD上に2Dテキストを描画。
 - **`DamageIndicatorRenderer`**:
   - `RenderLevelStageEvent` による3Dワールド空間描画（WORLD_3Dモード時）。
+- **`IndicatorConfigScreen`**:
+  - ゲーム内設定GUI画面。リアルタイムプレビュー、ボタントグル、ドラッグによる位置調整を完備。
 
-## 3. 連続ダメージ処理仕様
+### 2.4 リソース・カスタムフォント (`assets`)
 
-1. **加算モード (`ACCUMULATE` - デフォルト)**:
-   - 同一エンティティへ一定時間内（デフォルト30Ticks = 1.5秒）に連続でダメージを与えた場合、数値を合算（例: `15.0` → `30.0` → `45.0`）。
-   - ヒットごとにポップアップが拡大バウンスし、表示タイマーをリセット。
-   - `showHitCount` を有効にすると `45.0 x3` のようにヒット回数も付加表示。
-2. **上方スクロールモード (`SCROLL_UP`)**:
-   - 新しいダメージが発生するたびに、直前のインジケータを一定ピクセル（`scrollSpacing`）上方向へ押し上げ。
-   - 連続ヒットした数値が画面上に整然と並びながら上方へはけてフェードアウト。
-3. **個別モード (`OFF`)**:
-   - 従来の個別ポップアップ表示。
+- **ビットマップフォント定義 (`assets/minecraft/font/default.json`, `assets/taczindicator/font/default.json`)**:
+  - `\uE001`: 防具軽減（通常盾）アイコン (`textures/font/shield.png`)
+  - `\uE002`: 防具貫通（盾貫通）アイコン (`textures/font/shield_penetration.png`)
+
+## 3. ヘッドショット判定ロジック
+
+ヘッドショット判定は以下の多層判定アルゴリズムにより行われます：
+
+1. **TaCZ API イベントキャッシュ**:
+   - `TaCZCompatHandler` が `EntityHurtByGunEvent` から直接取得した `isHeadshot` フラグまたは倍率 (`multiplier > 1.05f`) を参照。
+2. **DamageType / MsgId 判定**:
+   - `DamageSource` のメッセージIDおよび `DamageType` リソース名に `headshot` / `head_shot` が含まれるか検査。
+3. **深層リフレクション探索**:
+   - `DamageSource`、`directEntity` (`EntityKineticBullet`)、および内部の `EntityResult` / `HitResult` オブジェクトの boolean フィールド/ゲッターを包括的に検査。
+4. **幾何学的フォールバック**:
+   - 弾丸着弾位置（またはダメージ発生座標）のY座標がモブ頭部領域（$y \ge \text{eyeY} - 0.25$ または頭部高さ70%以上）かつ水平当たり判定以内にあるかを検証。
 
 ## 4. 設定項目一覧 (`taczindicator-client.toml`)
 
 | 項目名 | 型 | デフォルト値 | 説明 |
 | :--- | :--- | :--- | :--- |
 | `enabled` | boolean | `true` | インジケータ表示の有効/無効 |
-| `renderMode` | enum | `HUD_PROJECTED` | 描画モード (`HUD_PROJECTED`, `HUD_CROSSHAIR`, `WORLD_3D`) |
+| `onlyPlayerDamage` | boolean | `true` | プレイヤー自身が与えたダメージのみ表示 |
+| `onlyTaczDamage` | boolean | `false` | TaCZ銃器ダメージのみ表示 |
+| `renderMode` | enum | `HUD_CROSSHAIR` | 描画モード (`HUD_CROSSHAIR`, `HUD_PROJECTED`, `WORLD_3D`) |
 | `consecutiveMode` | enum | `ACCUMULATE` | 連続ダメージ処理 (`ACCUMULATE`, `SCROLL_UP`, `OFF`) |
 | `comboTimeoutTicks` | int | `30` | 連続ヒット判定時間 (20Ticks = 1秒) |
-| `hudScale` | double | `1.0` | HUD表示時の文字拡大スケール |
-| `scrollSpacing` | double | `12.0` | SCROLL_UPモード時の押し上げ間隔（px） |
-| `crosshairOffsetX` | double | `15.0` | HUD_CROSSHAIR時の画面中心Xオフセット |
-| `crosshairOffsetY` | double | `-8.0` | HUD_CROSSHAIR時の画面中心Yオフセット |
-| `showHitCount` | boolean | `false` | 加算モード時のヒット数表示 (`x3` など) |
-| `enableConstantSize` | boolean | `true` | WORLD_3D時: 距離に関わらず一定サイズで表示 |
-| `baseScale` | double | `0.025` | WORLD_3D時: 基本描画スケール |
-| `distanceScaleFactor` | double | `1.0` | WORLD_3D時: 距離に応じた拡大係数 |
-| `lifetimeTicks` | int | `35` | 表示持続時間 |
-| `riseSpeed` | double | `0.025` | 上昇アニメーション速度 |
-| `enableXRay` | boolean | `true` | WORLD_3D時: 壁越しの透過表示 |
-| `showHeadshotIcon` | boolean | `true` | ヘッドショット表示 (`[HS]`) の有無 |
+| `showHitCount` | boolean | `true` | 加算モード時のヒット数表示 (`(x3)` など) |
+| `showKillAlert` | boolean | `true` | キル確定通知の表示 |
+| `showHeadshotIcon` | boolean | `true` | ☠ ドクロ表示の有無 |
+| `showCriticalIcon` | boolean | `true` | ★ 星表示の有無 |
+| `showArmorPiercingIcon` | boolean | `true` | \uE002 盾貫通表示の有無 |
+| `showArmorDamageIcon` | boolean | `true` | \uE001 防具軽減表示の有無 |
 | `decimalPlaces` | int | `1` | ダメージ値の小数点表示桁数 |
 | `normalDamageColor` | int | `0xFFFFFF` | 通常ダメージ色 |
-| `criticalDamageColor` | int | `0xFFFF55` | クリティカル色 |
-| `headshotDamageColor` | int | `0xFF2222` | ヘッドショット色 |
-| `taczDamageColor` | int | `0xFFA500` | TaCZ銃撃ダメージ色 |
+| `criticalDamageColor` | int | `0xFFCC00` | クリティカル色 |
+| `headshotDamageColor` | int | `0xFF3333` | ヘッドショット色 |
+| `armorPiercingColor` | int | `0x33CCFF` | 防具貫通ダメージ色 |
+| `taczDamageColor` | int | `0xFFFFFF` | TaCZ銃撃ダメージ色 |
 
 ## 5. ビルドおよび動作環境
 

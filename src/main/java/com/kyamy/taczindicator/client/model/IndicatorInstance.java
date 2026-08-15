@@ -69,6 +69,9 @@ public class IndicatorInstance {
         this(entityId, x, y, z, damage, isHeadshot, isCritical, isTaCZ, false, false);
     }
 
+    public static final String ICON_SHIELD = "\uE001";
+    public static final String ICON_SHIELD_PENETRATION = "\uE002";
+
     /**
      * テキストおよびカラーの再計算
      */
@@ -79,8 +82,6 @@ public class IndicatorInstance {
 
         if (this.isHeadshot && IndicatorConfig.isShowHeadshotIcon()) {
             numText = "§c☠ §l" + numText + "§r";
-        } else if (this.isArmorPiercing && IndicatorConfig.isShowArmorPiercingIcon()) {
-            numText = "§b🗡 §l" + numText + "§r";
         } else if (this.isCritical && IndicatorConfig.isShowCriticalIcon()) {
             numText = "§6★ §l" + numText + "§r";
         } else if (this.isCritical) {
@@ -91,19 +92,22 @@ public class IndicatorInstance {
             numText += " §7(x" + this.hitCount + ")";
         }
 
-        if (this.hitArmor && IndicatorConfig.isShowArmorDamageIcon() && !this.isArmorPiercing) {
-            numText += " §7\uD83D\uDEE1";
+        // 盾貫通（AP）または通常の防具軽減（盾）アイコンを末尾に表示
+        if (this.isArmorPiercing && IndicatorConfig.isShowArmorPiercingIcon()) {
+            numText += " §b" + ICON_SHIELD_PENETRATION;
+        } else if (this.hitArmor && IndicatorConfig.isShowArmorDamageIcon()) {
+            numText += " §f" + ICON_SHIELD;
         }
 
         this.formattedText = numText;
 
-        // カラーの決定 (優先度: Headshot > ArmorPiercing > Critical > Normal)
+        // カラーの決定 (優先度: Headshot > Critical > ArmorPiercing > TaCZ > Normal)
         if (this.isHeadshot) {
             this.color = IndicatorConfig.getHeadshotColor();
-        } else if (this.isArmorPiercing) {
-            this.color = IndicatorConfig.getArmorPiercingColor();
         } else if (this.isCritical) {
             this.color = IndicatorConfig.getCriticalColor();
+        } else if (this.isArmorPiercing) {
+            this.color = IndicatorConfig.getArmorPiercingColor();
         } else if (this.isTaCZ) {
             this.color = IndicatorConfig.getTaczColor();
         } else {
