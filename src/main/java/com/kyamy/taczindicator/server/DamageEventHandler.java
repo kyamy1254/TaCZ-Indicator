@@ -3,8 +3,10 @@ package com.kyamy.taczindicator.server;
 import com.kyamy.taczindicator.TaCZIndicatorMod;
 import com.kyamy.taczindicator.network.DamageIndicatorPacket;
 import com.kyamy.taczindicator.network.ModMessages;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.damagesource.DamageType;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.TraceableEntity;
@@ -15,12 +17,14 @@ import net.minecraftforge.event.entity.living.LivingHurtEvent;
 import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * サーバー側でダメージイベントを検知し、攻撃元プレイヤーへインジケータ情報を送信するハンドラ
+ * TaCZ銃器のヘッドショットおよびクリティカルを高精度に判定
  */
 public class DamageEventHandler {
 
@@ -58,37 +62,10 @@ public class DamageEventHandler {
 
         lastHandledTick.put(victim.getId(), currentTick);
 
-        // TaCZダメージ判定
-        boolean isTaCZ = false;
-        boolean isHeadshot = false;
-        boolean isCritical = false;
-
-        String msgId = source.getMsgId();
-        if (msgId != null) {
-            String lowerMsgId = msgId.toLowerCase();
-            if (lowerMsgId.contains("tacz") || lowerMsgId.contains("bullet") || lowerMsgId.contains("gun") || lowerMsgId.contains("kinetic")) {
-                isTaCZ = true;
-            }
-            if (lowerMsgId.contains("headshot") || lowerMsgId.contains("head_shot")) {
-                isHeadshot = true;
-                isTaCZ = true;
-            }
-        }
-
-        if (directEntity != null) {
-            String directClassName = directEntity.getClass().getName().toLowerCase();
-            if (directClassName.contains("tacz") || directClassName.contains("bullet") || directClassName.contains("gun") || directClassName.contains("kinetic")) {
-                isTaCZ = true;
-            }
-            if (directClassName.contains("headshot")) {
-                isHeadshot = true;
-                isTaCZ = true;
-            }
-        }
-
-        if (!isTaCZ && attackingPlayer.fallDistance > 0.0F && !attackingPlayer.onGround() && !attackingPlayer.onClimbable() && !attackingPlayer.isInWater()) {
-            isCritical = true;
-        }
+        // TaCZダメージ判定およびヘッドショット・クリティカル判定
+        boolean isTaCZ = isTaCZDamage(source, directEntity);
+        boolean isHeadshot = isHeadshotDamage(victim, source, directEntity);
+        boolean isCritical = isCriticalDamage(attackingPlayer, source, directEntity, isTaCZ);
 
         Vec3 eyePos = victim.getEyePosition();
         double posX = eyePos.x;
@@ -105,7 +82,145 @@ public class DamageEventHandler {
         );
 
         ModMessages.sendToPlayer(packet, attackingPlayer);
-        TaCZIndicatorMod.LOGGER.debug("Sent damage packet: victim={}, dmg={}, player={}", victim.getId(), damage, attackingPlayer.getName().getString());
+        TaCZIndicatorMod.LOGGER.debug("Sent damage packet: victim={}, dmg={}, HS={}, Crit={}, player={}",
+                victim.getId(), damage, isHeadshot, isCritical, attackingPlayer.getName().getString());
+    }
+
+    /**
+     * TaCZ銃器ダメージかどうかの判定
+     */
+    private static boolean isTaCZDamage(DamageSource source, Entity directEntity) {
+        String msgId = source.getMsgId();
+        if (msgId != null) {
+            String lower = msgId.toLowerCase();
+            if (lower.contains("tacz") || lower.contains("bullet") || lower.contains("gun") || lower.contains("kinetic")) {
+                return true;
+            }
+        }
+
+        if (source.typeHolder() != null && source.typeHolder().unwrapKey().isPresent()) {
+            ResourceKey<DamageType> key = source.typeHolder().unwrapKey().get();
+            String location = key.location().toString().toLowerCase();
+            if (location.contains("tacz") || location.contains("bullet") || location.contains("gun") || location.contains("kinetic")) {
+                return true;
+            }
+        }
+
+        if (directEntity != null) {
+            String directClassName = directEntity.getClass().getName().toLowerCase();
+            if (directClassName.contains("tacz") || directClassName.contains("bullet") || directClassName.contains("gun") || directClassName.contains("kinetic")) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * ヘッドショット判定 (DamageType、リフレクション、弾丸エンティティ、着弾幾何位置の総合判定)
+     */
+    private static boolean isHeadshotDamage(LivingEntity victim, DamageSource source, Entity directEntity) {
+        // 1. DamageSourceのMsgIdおよびDamageType判定
+        String msgId = source.getMsgId();
+        if (msgId != null) {
+            String lower = msgId.toLowerCase();
+            if (lower.contains("headshot") || lower.contains("head_shot") || lower.contains("head")) {
+                return true;
+            }
+        }
+
+        if (source.typeHolder() != null && source.typeHolder().unwrapKey().isPresent()) {
+            String location = source.typeHolder().unwrapKey().get().location().toString().toLowerCase();
+            if (location.contains("headshot") || location.contains("head_shot") || location.contains("head")) {
+                return true;
+            }
+        }
+
+        // 2. DirectEntity (弾丸など) のリフレクション判定
+        if (directEntity != null) {
+            if (checkBooleanGetter(directEntity, "isHeadshot", "isHeadShot", "getHeadshot", "hasHeadshot", "isHead")) {
+                return true;
+            }
+            if (checkBooleanField(directEntity, "isHeadshot", "isHeadShot", "headshot", "isHead")) {
+                return true;
+            }
+            String directName = directEntity.getClass().getName().toLowerCase();
+            if (directName.contains("headshot")) {
+                return true;
+            }
+        }
+
+        // 3. DamageSourceのリフレクション判定
+        if (checkBooleanGetter(source, "isHeadshot", "isHeadShot", "getHeadshot", "isHead")) {
+            return true;
+        }
+
+        // 4. 弾丸着弾位置と被弾モブの頭部（EyeHeight）の幾何学的フォールバック判定
+        double eyeY = victim.getEyeY();
+        if (directEntity != null) {
+            double bulletY = directEntity.getY();
+            // 弾丸のY座標がモブの目線付近（目線-0.3ブロック以上）であればヘッドショット
+            if (bulletY >= eyeY - 0.35) {
+                return true;
+            }
+        }
+
+        Vec3 srcPos = source.getSourcePosition();
+        if (srcPos != null && srcPos.y >= eyeY - 0.35) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * クリティカル判定
+     */
+    private static boolean isCriticalDamage(ServerPlayer player, DamageSource source, Entity directEntity, boolean isTaCZ) {
+        if (directEntity != null) {
+            if (checkBooleanGetter(directEntity, "isCrit", "isCritical", "getCritical", "hasCrit")) {
+                return true;
+            }
+            if (checkBooleanField(directEntity, "isCrit", "isCritical", "crit", "critical")) {
+                return true;
+            }
+        }
+
+        // バニラ近接クリティカル
+        if (!isTaCZ && player.fallDistance > 0.0F && !player.onGround() && !player.onClimbable() && !player.isInWater()) {
+            return true;
+        }
+
+        return false;
+    }
+
+    private static boolean checkBooleanGetter(Object obj, String... methodNames) {
+        for (String name : methodNames) {
+            try {
+                Method method = obj.getClass().getMethod(name);
+                Object res = method.invoke(obj);
+                if (res instanceof Boolean b && b) {
+                    return true;
+                }
+            } catch (Throwable ignored) {
+            }
+        }
+        return false;
+    }
+
+    private static boolean checkBooleanField(Object obj, String... fieldNames) {
+        for (String name : fieldNames) {
+            try {
+                Field field = obj.getClass().getDeclaredField(name);
+                field.setAccessible(true);
+                Object res = field.get(obj);
+                if (res instanceof Boolean b && b) {
+                    return true;
+                }
+            } catch (Throwable ignored) {
+            }
+        }
+        return false;
     }
 
     /**
@@ -119,7 +234,6 @@ public class DamageEventHandler {
             return serverPlayer;
         }
 
-        // Projectile / TraceableEntity からオーナーを取得
         if (directEntity instanceof TraceableEntity traceable) {
             if (traceable.getOwner() instanceof ServerPlayer serverPlayer) {
                 return serverPlayer;
@@ -156,7 +270,6 @@ public class DamageEventHandler {
             }
         }
 
-        // 直近の攻撃者プレイヤー（Fallback）
         if (victim.getLastHurtByMob() instanceof ServerPlayer serverPlayer) {
             return serverPlayer;
         }

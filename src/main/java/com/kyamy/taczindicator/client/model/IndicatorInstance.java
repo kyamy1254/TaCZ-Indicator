@@ -68,7 +68,7 @@ public class IndicatorInstance {
         String numText = String.format(Locale.ROOT, formatString, this.damage);
 
         if (this.isHeadshot && IndicatorConfig.isShowHeadshotIcon()) {
-            numText = "§c🎯 §l" + numText + "§r";
+            numText = "§c☠ §l" + numText + "§r";
         } else if (this.isCritical) {
             numText = "§6★ §l" + numText + "§r";
         }
