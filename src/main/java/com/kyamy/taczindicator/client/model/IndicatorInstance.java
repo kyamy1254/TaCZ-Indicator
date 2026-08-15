@@ -47,7 +47,7 @@ public class IndicatorInstance {
         this.isTaCZ = isTaCZ;
 
         this.ageTicks = 0;
-        this.maxLifetime = IndicatorConfig.CLIENT.getLifetime();
+        this.maxLifetime = IndicatorConfig.getLifetime();
 
         this.currentScrollY = 0.0;
         this.prevScrollY = 0.0;
@@ -63,17 +63,17 @@ public class IndicatorInstance {
      * テキストおよびカラーの再計算
      */
     public void updateFormattedTextAndColor() {
-        int decimalPlaces = IndicatorConfig.CLIENT.getDecimalPlaces();
+        int decimalPlaces = IndicatorConfig.getDecimalPlaces();
         String formatString = "%." + decimalPlaces + "f";
         String numText = String.format(Locale.ROOT, formatString, this.damage);
 
-        if (this.isHeadshot && IndicatorConfig.CLIENT.isShowHeadshotIcon()) {
+        if (this.isHeadshot && IndicatorConfig.isShowHeadshotIcon()) {
             numText = "§c[HS] §r" + numText;
         } else if (this.isCritical) {
             numText = "§e★ §r" + numText;
         }
 
-        if (IndicatorConfig.CLIENT.isShowHitCount() && this.hitCount > 1) {
+        if (IndicatorConfig.isShowHitCount() && this.hitCount > 1) {
             numText += " §7x" + this.hitCount;
         }
 
@@ -81,13 +81,13 @@ public class IndicatorInstance {
 
         // カラーの決定 (優先度: Headshot > Critical > TaCZ > Normal)
         if (this.isHeadshot) {
-            this.color = IndicatorConfig.CLIENT.getHeadshotColor();
+            this.color = IndicatorConfig.getHeadshotColor();
         } else if (this.isCritical) {
-            this.color = IndicatorConfig.CLIENT.getCriticalColor();
+            this.color = IndicatorConfig.getCriticalColor();
         } else if (this.isTaCZ) {
-            this.color = IndicatorConfig.CLIENT.getTaczColor();
+            this.color = IndicatorConfig.getTaczColor();
         } else {
-            this.color = IndicatorConfig.CLIENT.getNormalColor();
+            this.color = IndicatorConfig.getNormalColor();
         }
     }
 

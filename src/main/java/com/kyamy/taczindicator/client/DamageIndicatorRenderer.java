@@ -28,6 +28,7 @@ public class DamageIndicatorRenderer {
         if (event.phase == TickEvent.Phase.END) {
             Minecraft mc = Minecraft.getInstance();
             if (mc.level != null && !mc.isPaused()) {
+                ClientDamageHandler.incrementTick();
                 DamageIndicatorManager.getInstance().tick();
             }
         }
@@ -40,7 +41,7 @@ public class DamageIndicatorRenderer {
             return;
         }
 
-        if (!IndicatorConfig.CLIENT.isEnabled() || IndicatorConfig.CLIENT.getRenderMode() != IndicatorConfig.RenderMode.WORLD_3D) {
+        if (!IndicatorConfig.isEnabled() || IndicatorConfig.getRenderMode() != IndicatorConfig.RenderMode.WORLD_3D) {
             return;
         }
 

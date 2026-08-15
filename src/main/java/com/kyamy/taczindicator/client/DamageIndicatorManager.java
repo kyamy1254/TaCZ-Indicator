@@ -25,12 +25,12 @@ public class DamageIndicatorManager {
      * 新しいダメージインジケータを追加または連続ダメージ処理
      */
     public synchronized void addIndicator(int entityId, double x, double y, double z, float damage, boolean isHeadshot, boolean isCritical, boolean isTaCZ) {
-        if (!IndicatorConfig.CLIENT.isEnabled()) {
+        if (!IndicatorConfig.isEnabled()) {
             return;
         }
 
-        IndicatorConfig.ConsecutiveMode consecutiveMode = IndicatorConfig.CLIENT.getConsecutiveMode();
-        int comboTimeout = IndicatorConfig.CLIENT.getComboTimeoutTicks();
+        IndicatorConfig.ConsecutiveMode consecutiveMode = IndicatorConfig.getConsecutiveMode();
+        int comboTimeout = IndicatorConfig.getComboTimeoutTicks();
 
         if (consecutiveMode == IndicatorConfig.ConsecutiveMode.ACCUMULATE) {
             // 同一エンティティへの直近ヒットを検索
@@ -42,7 +42,7 @@ public class DamageIndicatorManager {
             }
         } else if (consecutiveMode == IndicatorConfig.ConsecutiveMode.SCROLL_UP) {
             // 同一エンティティ（または近接）の既存インジケータを上へ押し上げ
-            double spacing = IndicatorConfig.CLIENT.getScrollSpacing();
+            double spacing = IndicatorConfig.getScrollSpacing();
             for (IndicatorInstance ind : indicators) {
                 if (ind.getEntityId() == entityId || isNearby(ind, x, y, z, 2.5)) {
                     ind.pushScrollUp(spacing);

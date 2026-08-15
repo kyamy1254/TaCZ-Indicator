@@ -33,6 +33,29 @@ public class IndicatorConfig {
         ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, CLIENT_SPEC, "taczindicator-client.toml");
     }
 
+    // --- 静的ヘルパーメソッド（IDE互換性と簡潔なアクセスのため） ---
+    public static boolean isEnabled() { return CLIENT.isEnabled(); }
+    public static RenderMode getRenderMode() { return CLIENT.getRenderMode(); }
+    public static ConsecutiveMode getConsecutiveMode() { return CLIENT.getConsecutiveMode(); }
+    public static int getComboTimeoutTicks() { return CLIENT.getComboTimeoutTicks(); }
+    public static double getHudScale() { return CLIENT.getHudScale(); }
+    public static double getScrollSpacing() { return CLIENT.getScrollSpacing(); }
+    public static double getCrosshairOffsetX() { return CLIENT.getCrosshairOffsetX(); }
+    public static double getCrosshairOffsetY() { return CLIENT.getCrosshairOffsetY(); }
+    public static boolean isShowHitCount() { return CLIENT.isShowHitCount(); }
+    public static boolean isConstantSize() { return CLIENT.isConstantSize(); }
+    public static double getBaseScale() { return CLIENT.getBaseScale(); }
+    public static double getDistanceScaleFactor() { return CLIENT.getDistanceScaleFactor(); }
+    public static int getLifetime() { return CLIENT.getLifetime(); }
+    public static double getRiseSpeed() { return CLIENT.getRiseSpeed(); }
+    public static boolean isXRay() { return CLIENT.isXRay(); }
+    public static boolean isShowHeadshotIcon() { return CLIENT.isShowHeadshotIcon(); }
+    public static int getDecimalPlaces() { return CLIENT.getDecimalPlaces(); }
+    public static int getNormalColor() { return CLIENT.getNormalColor(); }
+    public static int getCriticalColor() { return CLIENT.getCriticalColor(); }
+    public static int getHeadshotColor() { return CLIENT.getHeadshotColor(); }
+    public static int getTaczColor() { return CLIENT.getTaczColor(); }
+
     public static class Client {
         // 全般設定
         public final ForgeConfigSpec.BooleanValue enabled;
@@ -159,87 +182,87 @@ public class IndicatorConfig {
 
         // 安全なゲッター（Config未ロード時でも安全にデフォルト値を返す）
         public boolean isEnabled() {
-            try { return enabled.get(); } catch (Exception e) { return true; }
+            try { return enabled != null && enabled.get(); } catch (Exception e) { return true; }
         }
 
         public RenderMode getRenderMode() {
-            try { return renderMode.get(); } catch (Exception e) { return RenderMode.HUD_PROJECTED; }
+            try { return renderMode != null ? renderMode.get() : RenderMode.HUD_PROJECTED; } catch (Exception e) { return RenderMode.HUD_PROJECTED; }
         }
 
         public ConsecutiveMode getConsecutiveMode() {
-            try { return consecutiveMode.get(); } catch (Exception e) { return ConsecutiveMode.ACCUMULATE; }
+            try { return consecutiveMode != null ? consecutiveMode.get() : ConsecutiveMode.ACCUMULATE; } catch (Exception e) { return ConsecutiveMode.ACCUMULATE; }
         }
 
         public int getComboTimeoutTicks() {
-            try { return comboTimeoutTicks.get(); } catch (Exception e) { return 30; }
+            try { return comboTimeoutTicks != null ? comboTimeoutTicks.get() : 30; } catch (Exception e) { return 30; }
         }
 
         public double getHudScale() {
-            try { return hudScale.get(); } catch (Exception e) { return 1.0D; }
+            try { return hudScale != null ? hudScale.get() : 1.0D; } catch (Exception e) { return 1.0D; }
         }
 
         public double getScrollSpacing() {
-            try { return scrollSpacing.get(); } catch (Exception e) { return 12.0D; }
+            try { return scrollSpacing != null ? scrollSpacing.get() : 12.0D; } catch (Exception e) { return 12.0D; }
         }
 
         public double getCrosshairOffsetX() {
-            try { return crosshairOffsetX.get(); } catch (Exception e) { return 15.0D; }
+            try { return crosshairOffsetX != null ? crosshairOffsetX.get() : 15.0D; } catch (Exception e) { return 15.0D; }
         }
 
         public double getCrosshairOffsetY() {
-            try { return crosshairOffsetY.get(); } catch (Exception e) { return -8.0D; }
+            try { return crosshairOffsetY != null ? crosshairOffsetY.get() : -8.0D; } catch (Exception e) { return -8.0D; }
         }
 
         public boolean isShowHitCount() {
-            try { return showHitCount.get(); } catch (Exception e) { return false; }
+            try { return showHitCount != null && showHitCount.get(); } catch (Exception e) { return false; }
         }
 
         public boolean isConstantSize() {
-            try { return enableConstantSize.get(); } catch (Exception e) { return true; }
+            try { return enableConstantSize != null && enableConstantSize.get(); } catch (Exception e) { return true; }
         }
 
         public double getBaseScale() {
-            try { return baseScale.get(); } catch (Exception e) { return 0.025D; }
+            try { return baseScale != null ? baseScale.get() : 0.025D; } catch (Exception e) { return 0.025D; }
         }
 
         public double getDistanceScaleFactor() {
-            try { return distanceScaleFactor.get(); } catch (Exception e) { return 1.0D; }
+            try { return distanceScaleFactor != null ? distanceScaleFactor.get() : 1.0D; } catch (Exception e) { return 1.0D; }
         }
 
         public int getLifetime() {
-            try { return lifetimeTicks.get(); } catch (Exception e) { return 35; }
+            try { return lifetimeTicks != null ? lifetimeTicks.get() : 35; } catch (Exception e) { return 35; }
         }
 
         public double getRiseSpeed() {
-            try { return riseSpeed.get(); } catch (Exception e) { return 0.025D; }
+            try { return riseSpeed != null ? riseSpeed.get() : 0.025D; } catch (Exception e) { return 0.025D; }
         }
 
         public boolean isXRay() {
-            try { return enableXRay.get(); } catch (Exception e) { return true; }
+            try { return enableXRay != null && enableXRay.get(); } catch (Exception e) { return true; }
         }
 
         public boolean isShowHeadshotIcon() {
-            try { return showHeadshotIcon.get(); } catch (Exception e) { return true; }
+            try { return showHeadshotIcon != null && showHeadshotIcon.get(); } catch (Exception e) { return true; }
         }
 
         public int getDecimalPlaces() {
-            try { return decimalPlaces.get(); } catch (Exception e) { return 1; }
+            try { return decimalPlaces != null ? decimalPlaces.get() : 1; } catch (Exception e) { return 1; }
         }
 
         public int getNormalColor() {
-            try { return normalDamageColor.get(); } catch (Exception e) { return 0xFFFFFF; }
+            try { return normalDamageColor != null ? normalDamageColor.get() : 0xFFFFFF; } catch (Exception e) { return 0xFFFFFF; }
         }
 
         public int getCriticalColor() {
-            try { return criticalDamageColor.get(); } catch (Exception e) { return 0xFFFF55; }
+            try { return criticalDamageColor != null ? criticalDamageColor.get() : 0xFFFF55; } catch (Exception e) { return 0xFFFF55; }
         }
 
         public int getHeadshotColor() {
-            try { return headshotDamageColor.get(); } catch (Exception e) { return 0xFF2222; }
+            try { return headshotDamageColor != null ? headshotDamageColor.get() : 0xFF2222; } catch (Exception e) { return 0xFF2222; }
         }
 
         public int getTaczColor() {
-            try { return taczDamageColor.get(); } catch (Exception e) { return 0xFFA500; }
+            try { return taczDamageColor != null ? taczDamageColor.get() : 0xFFA500; } catch (Exception e) { return 0xFFA500; }
         }
     }
 }

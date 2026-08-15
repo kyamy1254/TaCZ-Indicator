@@ -24,11 +24,11 @@ public class DamageIndicatorHudRenderer {
 
     @SubscribeEvent
     public static void onRenderGui(RenderGuiEvent.Post event) {
-        if (!IndicatorConfig.CLIENT.isEnabled()) {
+        if (!IndicatorConfig.isEnabled()) {
             return;
         }
 
-        IndicatorConfig.RenderMode renderMode = IndicatorConfig.CLIENT.getRenderMode();
+        IndicatorConfig.RenderMode renderMode = IndicatorConfig.getRenderMode();
         if (renderMode == IndicatorConfig.RenderMode.WORLD_3D) {
             // WORLD_3Dモードの場合はDamageIndicatorRendererで描画
             return;
@@ -49,7 +49,7 @@ public class DamageIndicatorHudRenderer {
         Font font = mc.font;
         float partialTick = event.getPartialTick();
 
-        double baseHudScale = IndicatorConfig.CLIENT.getHudScale();
+        double baseHudScale = IndicatorConfig.getHudScale();
         int screenWidth = event.getWindow().getGuiScaledWidth();
         int screenHeight = event.getWindow().getGuiScaledHeight();
 
@@ -73,8 +73,8 @@ public class DamageIndicatorHudRenderer {
                 posY = proj.getScreenY() - indicator.getInterpolatedScrollY(partialTick);
             } else {
                 // HUD_CROSSHAIRモード (レティクル周辺)
-                posX = (screenWidth / 2.0) + IndicatorConfig.CLIENT.getCrosshairOffsetX();
-                posY = (screenHeight / 2.0) + IndicatorConfig.CLIENT.getCrosshairOffsetY() - indicator.getInterpolatedScrollY(partialTick);
+                posX = (screenWidth / 2.0) + IndicatorConfig.getCrosshairOffsetX();
+                posY = (screenHeight / 2.0) + IndicatorConfig.getCrosshairOffsetY() - indicator.getInterpolatedScrollY(partialTick);
             }
 
             // スケール計算（ポップバウンス + ヘッドショット/クリティカル強調）
