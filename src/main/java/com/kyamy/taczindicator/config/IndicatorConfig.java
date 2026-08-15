@@ -71,6 +71,7 @@ public class IndicatorConfig {
 
     // [icons_and_colors]
     public static boolean isShowHeadshotIcon() { return CLIENT.isShowHeadshotIcon(); }
+    public static boolean isShowCriticalIcon() { return CLIENT.isShowCriticalIcon(); }
     public static boolean isShowArmorPiercingIcon() { return CLIENT.isShowArmorPiercingIcon(); }
     public static boolean isShowArmorDamageIcon() { return CLIENT.isShowArmorDamageIcon(); }
     public static int getNormalColor() { return CLIENT.getNormalColor(); }
@@ -112,6 +113,7 @@ public class IndicatorConfig {
 
         // [icons_and_colors] アイコン・カラー設定
         public final ForgeConfigSpec.BooleanValue showHeadshotIcon;
+        public final ForgeConfigSpec.BooleanValue showCriticalIcon;
         public final ForgeConfigSpec.BooleanValue showArmorPiercingIcon;
         public final ForgeConfigSpec.BooleanValue showArmorDamageIcon;
         public final ForgeConfigSpec.IntValue normalDamageColor;
@@ -262,6 +264,10 @@ public class IndicatorConfig {
                     .comment("ヘッドショット時にドクロアイコン(☠)を表示するかどうか")
                     .define("showHeadshotIcon", true);
 
+            showCriticalIcon = builder
+                    .comment("クリティカル時にスターアイコン(★)を表示するかどうか")
+                    .define("showCriticalIcon", true);
+
             showArmorPiercingIcon = builder
                     .comment("防具貫通弾(AP)命中時に貫通アイコン(🗡)を表示するかどうか")
                     .define("showArmorPiercingIcon", true);
@@ -362,6 +368,9 @@ public class IndicatorConfig {
         }
         public boolean isShowHeadshotIcon() {
             try { return showHeadshotIcon != null && showHeadshotIcon.get(); } catch (Exception e) { return true; }
+        }
+        public boolean isShowCriticalIcon() {
+            try { return showCriticalIcon != null && showCriticalIcon.get(); } catch (Exception e) { return true; }
         }
         public boolean isShowArmorPiercingIcon() {
             try { return showArmorPiercingIcon != null && showArmorPiercingIcon.get(); } catch (Exception e) { return true; }

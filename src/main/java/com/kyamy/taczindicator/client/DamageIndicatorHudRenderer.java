@@ -16,11 +16,14 @@ import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 2D HUDレイヤー上でのダメージインジケータおよびキル通知描画レンダラー
- * 照準横HUD表示・3D投影・キル確定演出をサポート
+ * 複数モブ同時被弾時のスマート行分離スタックおよび衝突防止機能を完備
  */
 @Mod.EventBusSubscriber(modid = TaCZIndicatorMod.MOD_ID, value = Dist.CLIENT)
 public class DamageIndicatorHudRenderer {
@@ -79,6 +82,18 @@ public class DamageIndicatorHudRenderer {
         PoseStack poseStack = guiGraphics.pose();
         double baseHudScale = IndicatorConfig.getHudScale();
 
+        // 複数ターゲット同時被弾時のスロット割り当て（HUD_CROSSHAIRモード用）
+        Map<Integer, Integer> entitySlotMap = new LinkedHashMap<>();
+        int currentSlot = 0;
+        for (IndicatorInstance ind : indicators) {
+            if (!entitySlotMap.containsKey(ind.getEntityId())) {
+                entitySlotMap.put(ind.getEntityId(), currentSlot++);
+            }
+        }
+
+        // 投影モード衝突防止用（HUD_PROJECTEDモード用）
+        List<double[]> renderedScreenPositions = new ArrayList<>();
+
         for (IndicatorInstance indicator : indicators) {
             double posX;
             double posY;
@@ -97,11 +112,24 @@ public class DamageIndicatorHudRenderer {
 
                 posX = proj.getScreenX();
                 posY = proj.getScreenY() - indicator.getInterpolatedScrollY(partialTick);
+
+                // スクリーン空間での近接衝突回避（モブ同士が重なっている場合の上方ずらし）
+                for (double[] existingPos : renderedScreenPositions) {
+                    double distSq = Math.pow(posX - existingPos[0], 2) + Math.pow(posY - existingPos[1], 2);
+                    if (distSq < 400.0) { // 20px以内
+                        posY -= (font.lineHeight + 4) * baseHudScale;
+                    }
+                }
+                renderedScreenPositions.add(new double[]{posX, posY});
+
                 drawX = -font.width(indicator.getFormattedText()) / 2;
             } else {
-                // HUD_CROSSHAIRモード (レティクル横)
+                // HUD_CROSSHAIRモード (レティクル横・ターゲット別行分離スタック)
+                int slot = entitySlotMap.getOrDefault(indicator.getEntityId(), 0);
+                double slotVerticalOffset = slot * ((font.lineHeight + 3) * baseHudScale);
+
                 posX = (screenWidth / 2.0) + IndicatorConfig.getCrosshairOffsetX();
-                posY = (screenHeight / 2.0) + IndicatorConfig.getCrosshairOffsetY() - indicator.getInterpolatedScrollY(partialTick);
+                posY = (screenHeight / 2.0) + IndicatorConfig.getCrosshairOffsetY() + slotVerticalOffset - indicator.getInterpolatedScrollY(partialTick);
                 drawX = 0;
             }
 

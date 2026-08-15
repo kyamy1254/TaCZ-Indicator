@@ -81,8 +81,10 @@ public class IndicatorInstance {
             numText = "§c☠ §l" + numText + "§r";
         } else if (this.isArmorPiercing && IndicatorConfig.isShowArmorPiercingIcon()) {
             numText = "§b🗡 §l" + numText + "§r";
-        } else if (this.isCritical) {
+        } else if (this.isCritical && IndicatorConfig.isShowCriticalIcon()) {
             numText = "§6★ §l" + numText + "§r";
+        } else if (this.isCritical) {
+            numText = "§6§l" + numText + "§r";
         }
 
         if (IndicatorConfig.isShowHitCount() && this.hitCount > 1) {
