@@ -7,8 +7,11 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.event.entity.living.LivingDamageEvent;
+import net.minecraftforge.event.entity.living.LivingHurtEvent;
+import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
@@ -18,7 +21,7 @@ import net.minecraftforge.fml.common.Mod;
 @Mod.EventBusSubscriber(modid = TaCZIndicatorMod.MOD_ID)
 public class DamageEventHandler {
 
-    @SubscribeEvent
+    @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onLivingDamage(LivingDamageEvent event) {
         LivingEntity victim = event.getEntity();
         if (victim == null || victim.level().isClientSide()) {
@@ -30,21 +33,15 @@ public class DamageEventHandler {
             return;
         }
 
-        Entity attacker = source.getEntity();
-        Entity directEntity = source.getDirectEntity();
         float damage = event.getAmount();
-
         if (damage <= 0.001f) {
             return;
         }
 
-        ServerPlayer attackingPlayer = null;
-        if (attacker instanceof ServerPlayer serverPlayer) {
-            attackingPlayer = serverPlayer;
-        } else if (directEntity instanceof ServerPlayer serverPlayer) {
-            attackingPlayer = serverPlayer;
-        }
+        Entity attacker = source.getEntity();
+        Entity directEntity = source.getDirectEntity();
 
+        ServerPlayer attackingPlayer = resolvePlayerAttacker(attacker, directEntity);
         if (attackingPlayer == null) {
             return;
         }
@@ -66,10 +63,14 @@ public class DamageEventHandler {
             }
         }
 
-        // 直接エンティティ（弾丸など）のクラス名からTaCZ判定
+        // 直接エンティティ（弾丸など）のクラス名判定
         if (directEntity != null) {
             String directClassName = directEntity.getClass().getName().toLowerCase();
-            if (directClassName.contains("tacz") || directClassName.contains("bullet")) {
+            if (directClassName.contains("tacz") || directClassName.contains("bullet") || directClassName.contains("gun")) {
+                isTaCZ = true;
+            }
+            if (directClassName.contains("headshot")) {
+                isHeadshot = true;
                 isTaCZ = true;
             }
         }
@@ -79,7 +80,7 @@ public class DamageEventHandler {
             isCritical = true;
         }
 
-        // ダメージ表示位置（モブの頭部〜上半身付近）
+        // ダメージ表示位置（モブの頭部〜視線位置）
         Vec3 eyePos = victim.getEyePosition();
         double posX = eyePos.x;
         double posY = eyePos.y;
@@ -95,5 +96,29 @@ public class DamageEventHandler {
         );
 
         ModMessages.sendToPlayer(packet, attackingPlayer);
+    }
+
+    /**
+     * DamageSource / 直接エンティティから攻撃者 ServerPlayer を解決
+     */
+    private static ServerPlayer resolvePlayerAttacker(Entity attacker, Entity directEntity) {
+        if (attacker instanceof ServerPlayer serverPlayer) {
+            return serverPlayer;
+        }
+        if (directEntity instanceof ServerPlayer serverPlayer) {
+            return serverPlayer;
+        }
+        // 弾丸などの Projectile からオーナーを取得
+        if (directEntity instanceof Projectile projectile) {
+            if (projectile.getOwner() instanceof ServerPlayer serverPlayer) {
+                return serverPlayer;
+            }
+        }
+        if (attacker instanceof Projectile projectile) {
+            if (projectile.getOwner() instanceof ServerPlayer serverPlayer) {
+                return serverPlayer;
+            }
+        }
+        return null;
     }
 }

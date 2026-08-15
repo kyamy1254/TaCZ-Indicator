@@ -16,7 +16,7 @@ public class IndicatorLogicTest {
     @DisplayName("距離非依存スケール計算の検証")
     void testConstantScaleCalculation() {
         double baseScale = 0.025D;
-        double distanceScaleFactor = 0.05D;
+        double distanceScaleFactor = 1.0D;
 
         // 至近距離 (1m)
         double distClose = 1.0D;
@@ -26,18 +26,18 @@ public class IndicatorLogicTest {
         // 遠距離 (100m)
         double distFar = 100.0D;
         double scaleFar = baseScale * Math.max(1.0D, distFar * distanceScaleFactor);
-        assertEquals(baseScale * 5.0D, scaleFar, 1e-6);
+        assertEquals(baseScale * 100.0D, scaleFar, 1e-6);
 
         // スナイパー距離 (500m)
         double distSniper = 500.0D;
         double scaleSniper = baseScale * Math.max(1.0D, distSniper * distanceScaleFactor);
-        assertEquals(baseScale * 25.0D, scaleSniper, 1e-6);
+        assertEquals(baseScale * 500.0D, scaleSniper, 1e-6);
     }
 
     @Test
     @DisplayName("フェードアウトアルファ値計算の検証")
     void testAlphaFadeOutCalculation() {
-        int maxLifetime = 30;
+        int maxLifetime = 35;
 
         // 開始時 (age = 0)
         float alphaStart = calculateAlpha(0, maxLifetime);
@@ -47,12 +47,12 @@ public class IndicatorLogicTest {
         float alphaMid = calculateAlpha(15, maxLifetime);
         assertEquals(1.0f, alphaMid, 1e-6);
 
-        // フェード開始 (70% = age 21)
-        float alphaFadeStart = calculateAlpha(21, maxLifetime);
-        assertTrue(alphaFadeStart >= 0.99f);
+        // フェード開始 (70% = age 24.5)
+        float alphaFadeStart = calculateAlpha(25, maxLifetime);
+        assertTrue(alphaFadeStart >= 0.9f);
 
-        // 終了直前 (age = 29)
-        float alphaEnd = calculateAlpha(29, maxLifetime);
+        // 終了直前 (age = 34)
+        float alphaEnd = calculateAlpha(34, maxLifetime);
         assertTrue(alphaEnd < 0.2f && alphaEnd >= 0.0f);
     }
 

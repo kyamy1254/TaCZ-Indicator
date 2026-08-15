@@ -26,18 +26,21 @@ public class DamageIndicatorRenderer {
     @SubscribeEvent
     public static void onClientTick(TickEvent.ClientTickEvent event) {
         if (event.phase == TickEvent.Phase.END) {
-            DamageIndicatorManager.getInstance().tick();
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.level != null && !mc.isPaused()) {
+                DamageIndicatorManager.getInstance().tick();
+            }
         }
     }
 
     @SubscribeEvent
     public static void onRenderLevelStage(RenderLevelStageEvent event) {
-        // 半透明ブロック描画後（またはパーティクル描画後）のステージで描画
-        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) {
+        // パーティクル描画直後のステージで描画
+        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_PARTICLES) {
             return;
         }
 
-        if (!IndicatorConfig.CLIENT.enabled.get()) {
+        if (!IndicatorConfig.CLIENT.isEnabled()) {
             return;
         }
 
@@ -58,10 +61,10 @@ public class DamageIndicatorRenderer {
         Font font = mc.font;
         float partialTick = event.getPartialTick();
 
-        boolean enableConstantSize = IndicatorConfig.CLIENT.enableConstantSize.get();
-        double baseScale = IndicatorConfig.CLIENT.baseScale.get();
-        double distanceScaleFactor = IndicatorConfig.CLIENT.distanceScaleFactor.get();
-        boolean enableXRay = IndicatorConfig.CLIENT.enableXRay.get();
+        boolean enableConstantSize = IndicatorConfig.CLIENT.isConstantSize();
+        double baseScale = IndicatorConfig.CLIENT.getBaseScale();
+        double distanceScaleFactor = IndicatorConfig.CLIENT.getDistanceScaleFactor();
+        boolean enableXRay = IndicatorConfig.CLIENT.isXRay();
 
         for (IndicatorInstance indicator : indicators) {
             double posX = indicator.getX();
@@ -75,13 +78,13 @@ public class DamageIndicatorRenderer {
             // 距離計算
             double distance = Math.sqrt(relX * relX + relY * relY + relZ * relZ);
             if (distance < 0.1) {
-                continue; // 近すぎる場合はスキップ
+                continue;
             }
 
             // 距離非依存スケール計算 (透視投影の距離減衰を相殺)
             double scale = baseScale;
             if (enableConstantSize) {
-                // 距離に比例させて拡大することで画面上の見かけのサイズを一定に維持
+                // 距離に正比例させて拡大することで画面上の見かけのサイズを完全に一定に維持
                 scale = baseScale * Math.max(1.0D, distance * distanceScaleFactor);
             }
 
@@ -110,20 +113,20 @@ public class DamageIndicatorRenderer {
 
             // アルファ値（フェードアウト効果）
             int alpha = (int) (indicator.getAlpha(partialTick) * 255.0f);
-            alpha = Math.max(4, Math.min(255, alpha));
+            alpha = Math.max(8, Math.min(255, alpha));
             int color = indicator.getColor() & 0x00FFFFFF;
             int argb = (alpha << 24) | color;
 
             // X-Ray（壁越し透過表示）または通常表示モード
             Font.DisplayMode displayMode = enableXRay ? Font.DisplayMode.SEE_THROUGH : Font.DisplayMode.NORMAL;
 
-            // 最大明度（15728880 = LightTexture.pack(15, 15)）でテキストを描画
+            // テキスト描画 (影付き dropShadow = true で視認性を向上)
             font.drawInBatch(
                     text,
                     xOffset,
                     yOffset,
                     argb,
-                    false,
+                    true,
                     matrix4f,
                     bufferSource,
                     displayMode,

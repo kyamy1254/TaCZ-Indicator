@@ -53,20 +53,20 @@ public class IndicatorConfig {
                     .define("enableConstantSize", true);
 
             baseScale = builder
-                    .comment("インジケータの基本スケール")
+                    .comment("インジケータの基本スケール（1ブロックを基準としたフォント比率）")
                     .defineInRange("baseScale", 0.025D, 0.001D, 0.5D);
 
             distanceScaleFactor = builder
-                    .comment("距離に応じた拡大係数（一定サイズモードで使用）")
-                    .defineInRange("distanceScaleFactor", 0.05D, 0.001D, 1.0D);
+                    .comment("距離に応じた拡大係数（一定サイズモードで 1.0 = 完全等比拡大）")
+                    .defineInRange("distanceScaleFactor", 1.0D, 0.01D, 10.0D);
 
             lifetimeTicks = builder
                     .comment("インジケータが表示されてから消えるまでの時間（Tick単位: 20Ticks = 1秒）")
-                    .defineInRange("lifetimeTicks", 30, 5, 200);
+                    .defineInRange("lifetimeTicks", 35, 5, 200);
 
             riseSpeed = builder
                     .comment("インジケータの上昇速度")
-                    .defineInRange("riseSpeed", 0.03D, 0.0D, 0.5D);
+                    .defineInRange("riseSpeed", 0.025D, 0.0D, 0.5D);
 
             enableXRay = builder
                     .comment("壁や遮蔽物の向こう側でもインジケータを透過表示するかどうか")
@@ -101,6 +101,59 @@ public class IndicatorConfig {
                     .defineInRange("taczDamageColor", 0xFFA500, 0, 0xFFFFFF);
 
             builder.pop();
+        }
+
+        // 安全なゲッター（Config未ロード時でも安全にデフォルト値を返す）
+        public boolean isEnabled() {
+            try { return enabled.get(); } catch (Exception e) { return true; }
+        }
+
+        public boolean isConstantSize() {
+            try { return enableConstantSize.get(); } catch (Exception e) { return true; }
+        }
+
+        public double getBaseScale() {
+            try { return baseScale.get(); } catch (Exception e) { return 0.025D; }
+        }
+
+        public double getDistanceScaleFactor() {
+            try { return distanceScaleFactor.get(); } catch (Exception e) { return 1.0D; }
+        }
+
+        public int getLifetime() {
+            try { return lifetimeTicks.get(); } catch (Exception e) { return 35; }
+        }
+
+        public double getRiseSpeed() {
+            try { return riseSpeed.get(); } catch (Exception e) { return 0.025D; }
+        }
+
+        public boolean isXRay() {
+            try { return enableXRay.get(); } catch (Exception e) { return true; }
+        }
+
+        public boolean isShowHeadshotIcon() {
+            try { return showHeadshotIcon.get(); } catch (Exception e) { return true; }
+        }
+
+        public int getDecimalPlaces() {
+            try { return decimalPlaces.get(); } catch (Exception e) { return 1; }
+        }
+
+        public int getNormalColor() {
+            try { return normalDamageColor.get(); } catch (Exception e) { return 0xFFFFFF; }
+        }
+
+        public int getCriticalColor() {
+            try { return criticalDamageColor.get(); } catch (Exception e) { return 0xFFFF55; }
+        }
+
+        public int getHeadshotColor() {
+            try { return headshotDamageColor.get(); } catch (Exception e) { return 0xFF2222; }
+        }
+
+        public int getTaczColor() {
+            try { return taczDamageColor.get(); } catch (Exception e) { return 0xFFA500; }
         }
     }
 }
