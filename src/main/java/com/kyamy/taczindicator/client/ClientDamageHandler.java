@@ -104,7 +104,7 @@ public class ClientDamageHandler {
                     boolean isCrosshairTarget = (crosshairTarget != null && crosshairTarget.getId() == entityId);
                     double distSq = localPlayer.distanceToSqr(entity);
 
-                    if (isPlayerAttack || isCrosshairTarget || distSq < 400.0) {
+                    if (isPlayerAttack || isCrosshairTarget || distSq < 16384.0) {
                         double posX = entity.getX();
                         double posY = entity.getEyeY();
                         double posZ = entity.getZ();

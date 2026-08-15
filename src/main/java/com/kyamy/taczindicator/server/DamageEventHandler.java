@@ -11,32 +11,40 @@ import net.minecraft.world.entity.TraceableEntity;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.event.entity.living.LivingDamageEvent;
+import net.minecraftforge.event.entity.living.LivingHurtEvent;
 import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
 
 import java.lang.reflect.Method;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * サーバー側でダメージイベントを検知し、攻撃元プレイヤーへインジケータ情報を送信するハンドラ
  */
-@Mod.EventBusSubscriber(modid = TaCZIndicatorMod.MOD_ID)
 public class DamageEventHandler {
+
+    // 同一Tick内の重複送信防止
+    private static final Map<Integer, Long> lastHandledTick = new ConcurrentHashMap<>();
 
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onLivingDamage(LivingDamageEvent event) {
-        LivingEntity victim = event.getEntity();
-        if (victim == null || victim.level().isClientSide()) {
+        handleDamage(event.getEntity(), event.getSource(), event.getAmount());
+    }
+
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public static void onLivingHurt(LivingHurtEvent event) {
+        handleDamage(event.getEntity(), event.getSource(), event.getAmount());
+    }
+
+    private static void handleDamage(LivingEntity victim, DamageSource source, float damage) {
+        if (victim == null || victim.level().isClientSide() || source == null || damage <= 0.001f) {
             return;
         }
 
-        DamageSource source = event.getSource();
-        if (source == null) {
-            return;
-        }
-
-        float damage = event.getAmount();
-        if (damage <= 0.001f) {
+        long currentTick = victim.level().getGameTime();
+        Long lastTick = lastHandledTick.get(victim.getId());
+        if (lastTick != null && lastTick == currentTick) {
             return;
         }
 
@@ -47,6 +55,8 @@ public class DamageEventHandler {
         if (attackingPlayer == null) {
             return;
         }
+
+        lastHandledTick.put(victim.getId(), currentTick);
 
         // TaCZダメージ判定
         boolean isTaCZ = false;
@@ -65,7 +75,6 @@ public class DamageEventHandler {
             }
         }
 
-        // 直接エンティティ（弾丸など）のクラス名判定
         if (directEntity != null) {
             String directClassName = directEntity.getClass().getName().toLowerCase();
             if (directClassName.contains("tacz") || directClassName.contains("bullet") || directClassName.contains("gun") || directClassName.contains("kinetic")) {
@@ -77,18 +86,15 @@ public class DamageEventHandler {
             }
         }
 
-        // バニラクリティカル判定（落下中の近接攻撃等）
         if (!isTaCZ && attackingPlayer.fallDistance > 0.0F && !attackingPlayer.onGround() && !attackingPlayer.onClimbable() && !attackingPlayer.isInWater()) {
             isCritical = true;
         }
 
-        // ダメージ表示位置（モブの頭部〜視線位置）
         Vec3 eyePos = victim.getEyePosition();
         double posX = eyePos.x;
         double posY = eyePos.y;
         double posZ = eyePos.z;
 
-        // パケット送信
         DamageIndicatorPacket packet = new DamageIndicatorPacket(
                 victim.getId(),
                 posX, posY, posZ,
@@ -99,6 +105,7 @@ public class DamageEventHandler {
         );
 
         ModMessages.sendToPlayer(packet, attackingPlayer);
+        TaCZIndicatorMod.LOGGER.debug("Sent damage packet: victim={}, dmg={}, player={}", victim.getId(), damage, attackingPlayer.getName().getString());
     }
 
     /**

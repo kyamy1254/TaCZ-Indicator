@@ -10,6 +10,8 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RenderGuiEvent;
+import net.minecraftforge.client.event.RenderGuiOverlayEvent;
+import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
@@ -18,12 +20,24 @@ import java.util.List;
 /**
  * 2D HUDレイヤー上でのダメージインジケータ描画レンダラー
  * 投影HUDモードおよび照準HUDモード、ポップ・スクロールアニメーションをサポート
+ * Embeddium/Oculus等のシェーダー・最適化MOD導入時でも確実に描画されるデュアルフック構造
  */
 @Mod.EventBusSubscriber(modid = TaCZIndicatorMod.MOD_ID, value = Dist.CLIENT)
 public class DamageIndicatorHudRenderer {
 
-    @SubscribeEvent
+    private static long lastRenderedFrameTime = 0;
+
+    @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onRenderGui(RenderGuiEvent.Post event) {
+        renderIndicators(event.getGuiGraphics(), event.getPartialTick(), event.getWindow().getGuiScaledWidth(), event.getWindow().getGuiScaledHeight());
+    }
+
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public static void onRenderOverlay(RenderGuiOverlayEvent.Post event) {
+        renderIndicators(event.getGuiGraphics(), event.getPartialTick(), event.getWindow().getGuiScaledWidth(), event.getWindow().getGuiScaledHeight());
+    }
+
+    private static void renderIndicators(GuiGraphics guiGraphics, float partialTick, int screenWidth, int screenHeight) {
         if (!IndicatorConfig.isEnabled()) {
             return;
         }
@@ -44,14 +58,17 @@ public class DamageIndicatorHudRenderer {
             return;
         }
 
-        GuiGraphics guiGraphics = event.getGuiGraphics();
+        // 同一フレームでの多重描画防止
+        long now = System.nanoTime() / 1_000_000L;
+        if (now - lastRenderedFrameTime < 5) {
+            return;
+        }
+        lastRenderedFrameTime = now;
+
         PoseStack poseStack = guiGraphics.pose();
         Font font = mc.font;
-        float partialTick = event.getPartialTick();
 
         double baseHudScale = IndicatorConfig.getHudScale();
-        int screenWidth = event.getWindow().getGuiScaledWidth();
-        int screenHeight = event.getWindow().getGuiScaledHeight();
 
         for (IndicatorInstance indicator : indicators) {
             double posX;
