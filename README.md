@@ -15,21 +15,21 @@ Minecraft Forge 1.20.1 向けのダメージインジケータMODです。
 
 ## ビルド手順
 
-Maven Wrapper を使用してビルドします：
+Gradle Wrapper を使用してビルドします（Java 17 が必要です）：
 
-```bash
+```powershell
 # Windows
-.\mvnw.cmd clean package
+.\gradlew.bat build
 
 # Linux / macOS
-./mvnw clean package
+./gradlew build
 ```
 
-ビルドが完了すると、`target/tacz-indicator-1.0.0.jar` にMODファイルが生成されます。
+ビルドが完了すると、`build/libs/taczindicator-1.0.0.jar` にMODファイル（reobf済み正規MOD jar）が生成されます。
 
 ---
 
 ## 導入方法
-1. Minecraft Forge 1.20.1 (Forge 47.1.0以上推奨) をインストールします。
-2. 生成された `tacz-indicator-1.0.0.jar` を `.minecraft/mods` フォルダに配置します。
+1. Minecraft Forge 1.20.1 (Forge 47.1.0以上、47.3.0推奨) をインストールします。
+2. 生成された `build/libs/taczindicator-1.0.0.jar` を `.minecraft/mods` フォルダに配置します。
 3. （任意）`config/taczindicator-client.toml` で好みの設定に調整します。

@@ -61,10 +61,19 @@ $$S_{\text{world}} = S_{\text{base}} \times \max(1.0, d \times \text{distanceSca
 | `headshotDamageColor` | int | `0xFF2222` | ヘッドショット色 |
 | `taczDamageColor` | int | `0xFFA500` | TaCZ銃撃ダメージ色 |
 
-## 5. ビルド方法
+## 5. ビルドおよび動作環境
 
-```bash
-mvn clean test
+- **Minecraft**: 1.20.1
+- **Forge**: 47.3.0 (47.1.0+)
+- **Java**: 17 (Eclipse Temurin / OpenJDK 17)
+- **ビルドツール**: Gradle 8.4 + ForgeGradle 6.0
+
+### ビルド手順
+
+```powershell
+# 単体テストの実行
+.\gradlew.bat test
+
+# MOD jar のビルド (build/libs/taczindicator-1.0.0.jar が生成されます)
+.\gradlew.bat build
 ```
-
-単体テストの実行およびMavenビルドの検証が行われます。
