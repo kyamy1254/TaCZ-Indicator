@@ -1,21 +1,21 @@
 package com.kyamy.taczindicator.server;
 
 import com.kyamy.taczindicator.TaCZIndicatorMod;
-import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.eventbus.api.EventPriority;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 /**
- * TaCZ (Timeless and Classics Zero) との動的・安全な連携ハンドラ
- * TaCZのAPIイベント (EntityHurtByGunEvent等) を動的に購読し、
- * 高精度なヘッドショット判定・防具貫通判定・銃器情報をキャッシュして提供
+ * TaCZ (Timeless and Classics Zero) との動的・高精度連携ハンドラ
+ * TaCZのAPIイベント (EntityHurtByGunEvent, BulletHitEvent等) を動的に購読し、
+ * クラス階層全体を走査してヘッドショット判定・防具貫通判定・銃器情報をキャッシュして提供
  */
 public class TaCZCompatHandler {
 
@@ -32,33 +32,55 @@ public class TaCZCompatHandler {
     private static boolean initialized = false;
     private static boolean taczLoaded = false;
 
+    private static final String[] TARGET_EVENT_CLASSES = new String[]{
+            "com.tacz.guns.api.event.EntityHurtByGunEvent$Pre",
+            "com.tacz.guns.api.event.EntityHurtByGunEvent$Post",
+            "com.tacz.guns.api.event.EntityHurtByGunEvent",
+            "com.tacz.guns.api.event.common.EntityHurtByGunEvent$Pre",
+            "com.tacz.guns.api.event.common.EntityHurtByGunEvent$Post",
+            "com.tacz.guns.api.event.common.EntityHurtByGunEvent",
+            "com.tacz.guns.api.event.server.EntityHurtByGunEvent$Pre",
+            "com.tacz.guns.api.event.server.EntityHurtByGunEvent$Post",
+            "com.tacz.guns.api.event.server.EntityHurtByGunEvent",
+            "com.tacz.guns.api.event.entity.EntityHurtByGunEvent$Pre",
+            "com.tacz.guns.api.event.entity.EntityHurtByGunEvent$Post",
+            "com.tacz.guns.api.event.entity.EntityHurtByGunEvent",
+            "com.tacz.guns.event.EntityHurtByGunEvent$Pre",
+            "com.tacz.guns.event.EntityHurtByGunEvent$Post",
+            "com.tacz.guns.event.EntityHurtByGunEvent",
+            "com.tacz.guns.api.event.BulletHitEvent$Pre",
+            "com.tacz.guns.api.event.BulletHitEvent$Post",
+            "com.tacz.guns.api.event.BulletHitEvent",
+            "com.tacz.guns.api.event.common.BulletHitEvent",
+            "com.tacz.guns.api.event.server.BulletHitEvent"
+    };
+
     /**
      * TaCZ連携の動的初期化 (Mod初期化時またはサーバー起動時に呼び出し)
      */
-    @SuppressWarnings({"unchecked", "rawtypes"})
     public static void init() {
         if (initialized) {
             return;
         }
         initialized = true;
 
-        try {
-            // 1. EntityHurtByGunEvent.Post の探索と登録
-            registerEventListenerIfPresent("com.tacz.guns.api.event.EntityHurtByGunEvent$Post");
-            // 2. EntityHurtByGunEvent.Pre の探索と登録
-            registerEventListenerIfPresent("com.tacz.guns.api.event.EntityHurtByGunEvent$Pre");
-            // 3. 基本イベントクラスの探索
-            registerEventListenerIfPresent("com.tacz.guns.api.event.EntityHurtByGunEvent");
+        int registeredCount = 0;
+        for (String className : TARGET_EVENT_CLASSES) {
+            if (registerEventListenerIfPresent(className)) {
+                registeredCount++;
+                taczLoaded = true;
+            }
+        }
 
-            taczLoaded = true;
-            TaCZIndicatorMod.LOGGER.info("[TaCZ Indicator] Successfully hooked into TaCZ Gun Events for high-precision hit detection.");
-        } catch (Throwable t) {
-            TaCZIndicatorMod.LOGGER.debug("[TaCZ Indicator] TaCZ gun events not detected or could not be hooked: {}", t.getMessage());
+        if (taczLoaded) {
+            TaCZIndicatorMod.LOGGER.info("[TaCZ Indicator] Successfully hooked into {} TaCZ Gun Event listener(s).", registeredCount);
+        } else {
+            TaCZIndicatorMod.LOGGER.debug("[TaCZ Indicator] TaCZ gun events not detected or could not be hooked directly (geometric raycast fallback active).");
         }
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    private static void registerEventListenerIfPresent(String className) {
+    private static boolean registerEventListenerIfPresent(String className) {
         try {
             Class<?> clazz = Class.forName(className);
             if (net.minecraftforge.eventbus.api.Event.class.isAssignableFrom(clazz)) {
@@ -68,11 +90,13 @@ public class TaCZCompatHandler {
                 Consumer consumer = (Consumer<Object>) TaCZCompatHandler::onGunHurtEvent;
                 MinecraftForge.EVENT_BUS.addListener(EventPriority.HIGHEST, true, eventClass, consumer);
                 TaCZIndicatorMod.LOGGER.debug("[TaCZ Indicator] Registered dynamic listener for: {}", className);
+                return true;
             }
         } catch (ClassNotFoundException ignored) {
         } catch (Throwable t) {
             TaCZIndicatorMod.LOGGER.debug("[TaCZ Indicator] Failed to register listener for {}: {}", className, t.getMessage());
         }
+        return false;
     }
 
     /**
@@ -86,14 +110,14 @@ public class TaCZCompatHandler {
             if (victim == null) return;
 
             int victimId = victim.getId();
-            boolean isHeadshot = extractBooleanProperty(event, "isHeadshot", "isHeadShot", "headshot", "hasHeadshot", "isHead");
-            float multiplier = extractFloatProperty(event, "getHeadshotMultiplier", "headshotMultiplier", "getMultiplier");
+            boolean isHeadshot = extractHeadshotProperty(event);
+            float multiplier = extractFloatPropertyDeep(event, "headshotmultiplier", "head_shot_multiplier", "multiplier", "getmultiplier");
             if (multiplier > 1.05f) {
                 isHeadshot = true;
             }
 
-            boolean isArmorPiercing = extractBooleanProperty(event, "isArmorPiercing", "isArmorIgnore", "armorPiercing", "armorIgnore");
-            String gunId = extractStringProperty(event, "getGunId", "gunId");
+            boolean isArmorPiercing = extractBooleanPropertyDeep(event, "armorpiercing", "armor_piercing", "armorignore", "armor_ignore", "piercing", "ignorearmor");
+            String gunId = extractStringPropertyDeep(event, "gunid", "gun_id", "gunname");
 
             TaCZHitRecord record = new TaCZHitRecord(
                     victimId,
@@ -114,12 +138,12 @@ public class TaCZCompatHandler {
     }
 
     /**
-     * 指定エンティティの直近（500ms以内）のTaCZ銃撃ヒットレコードを取得
+     * 指定エンティティの直近（800ms以内）のTaCZ銃撃ヒットレコードを取得
      */
     public static TaCZHitRecord getRecentHit(int entityId) {
         TaCZHitRecord record = RECENT_HITS.get(entityId);
         if (record != null) {
-            if (System.currentTimeMillis() - record.timestampMs() <= 500) {
+            if (System.currentTimeMillis() - record.timestampMs() <= 800) {
                 return record;
             } else {
                 RECENT_HITS.remove(entityId);
@@ -140,49 +164,86 @@ public class TaCZCompatHandler {
         return taczLoaded;
     }
 
-    // --- リフレクション抽出ヘルパー ---
+    // --- 包括的・多層リフレクション抽出ヘルパー ---
 
     private static LivingEntity extractVictim(Object event) {
-        for (String method : new String[]{"getHurtEntity", "getEntity", "getTarget", "getLivingEntity", "getVictim"}) {
-            try {
-                Method m = event.getClass().getMethod(method);
-                Object res = m.invoke(event);
-                if (res instanceof LivingEntity le) return le;
-            } catch (Throwable ignored) {}
+        if (event == null) return null;
+
+        // 1. メソッド探索 (全階層)
+        Class<?> current = event.getClass();
+        while (current != null && current != Object.class) {
+            Method[] methods = current.getDeclaredMethods();
+            for (Method m : methods) {
+                String name = m.getName().toLowerCase(Locale.ROOT);
+                if (name.contains("victim") || name.contains("hurtentity") || name.contains("entity") || name.contains("target") || name.contains("living")) {
+                    if (m.getParameterCount() == 0 && LivingEntity.class.isAssignableFrom(m.getReturnType())) {
+                        try {
+                            m.setAccessible(true);
+                            Object res = m.invoke(event);
+                            if (res instanceof LivingEntity le) return le;
+                        } catch (Throwable ignored) {}
+                    }
+                }
+            }
+            current = current.getSuperclass();
         }
-        for (String fieldName : new String[]{"hurtEntity", "entity", "target", "victim", "livingEntity"}) {
-            try {
-                Field f = event.getClass().getDeclaredField(fieldName);
-                f.setAccessible(true);
-                Object res = f.get(event);
-                if (res instanceof LivingEntity le) return le;
-            } catch (Throwable ignored) {}
+
+        // 2. フィールド探索 (全階層)
+        current = event.getClass();
+        while (current != null && current != Object.class) {
+            Field[] fields = current.getDeclaredFields();
+            for (Field f : fields) {
+                String name = f.getName().toLowerCase(Locale.ROOT);
+                if (name.contains("victim") || name.contains("hurtentity") || name.contains("entity") || name.contains("target") || name.contains("living")) {
+                    if (LivingEntity.class.isAssignableFrom(f.getType())) {
+                        try {
+                            f.setAccessible(true);
+                            Object res = f.get(event);
+                            if (res instanceof LivingEntity le) return le;
+                        } catch (Throwable ignored) {}
+                    }
+                }
+            }
+            current = current.getSuperclass();
         }
+
         return null;
     }
 
-    public static boolean extractBooleanProperty(Object obj, String... names) {
+    public static boolean extractHeadshotProperty(Object obj) {
         if (obj == null) return false;
 
-        // ゲッターメソッド
-        for (String name : names) {
-            try {
-                Method m = obj.getClass().getMethod(name);
-                Object res = m.invoke(obj);
-                if (res instanceof Boolean b && b) return true;
-            } catch (Throwable ignored) {}
+        // 直接のboolean判定
+        if (extractBooleanPropertyDeep(obj, "headshot", "head_shot", "ishead", "headhit")) {
+            return true;
         }
 
-        // フィールド
+        // 倍率が1.05超か検査
+        float mult = extractFloatPropertyDeep(obj, "headshotmultiplier", "head_shot_multiplier", "headmultiplier", "multiplier");
+        if (mult > 1.05f) {
+            return true;
+        }
+
+        // ネストされた Result / Hit オブジェクトの探索
         Class<?> current = obj.getClass();
         while (current != null && current != Object.class) {
-            for (String name : names) {
-                try {
-                    Field f = current.getDeclaredField(name);
-                    f.setAccessible(true);
-                    Object res = f.get(obj);
-                    if (res instanceof Boolean b && b) return true;
-                } catch (Throwable ignored) {}
+            Field[] fields = current.getDeclaredFields();
+            for (Field f : fields) {
+                String fName = f.getName().toLowerCase(Locale.ROOT);
+                if (fName.contains("result") || fName.contains("hit") || fName.contains("bullet") || fName.contains("data")) {
+                    try {
+                        f.setAccessible(true);
+                        Object nested = f.get(obj);
+                        if (nested != null && nested != obj) {
+                            if (extractBooleanPropertyDeep(nested, "headshot", "head_shot", "ishead", "headhit")) {
+                                return true;
+                            }
+                            if (extractFloatPropertyDeep(nested, "headshotmultiplier", "head_shot_multiplier", "headmultiplier", "multiplier") > 1.05f) {
+                                return true;
+                            }
+                        }
+                    } catch (Throwable ignored) {}
+                }
             }
             current = current.getSuperclass();
         }
@@ -190,26 +251,85 @@ public class TaCZCompatHandler {
         return false;
     }
 
-    public static float extractFloatProperty(Object obj, String... names) {
-        if (obj == null) return 1.0f;
-
-        for (String name : names) {
-            try {
-                Method m = obj.getClass().getMethod(name);
-                Object res = m.invoke(obj);
-                if (res instanceof Number n) return n.floatValue();
-            } catch (Throwable ignored) {}
-        }
+    public static boolean extractBooleanPropertyDeep(Object obj, String... keywords) {
+        if (obj == null) return false;
 
         Class<?> current = obj.getClass();
         while (current != null && current != Object.class) {
-            for (String name : names) {
-                try {
-                    Field f = current.getDeclaredField(name);
-                    f.setAccessible(true);
-                    Object res = f.get(obj);
-                    if (res instanceof Number n) return n.floatValue();
-                } catch (Throwable ignored) {}
+            // メソッド探索
+            Method[] methods = current.getDeclaredMethods();
+            for (Method m : methods) {
+                if (m.getParameterCount() == 0 && (m.getReturnType() == boolean.class || m.getReturnType() == Boolean.class)) {
+                    String mName = m.getName().toLowerCase(Locale.ROOT);
+                    for (String kw : keywords) {
+                        if (mName.contains(kw.toLowerCase(Locale.ROOT))) {
+                            try {
+                                m.setAccessible(true);
+                                Object res = m.invoke(obj);
+                                if (res instanceof Boolean b && b) return true;
+                            } catch (Throwable ignored) {}
+                        }
+                    }
+                }
+            }
+
+            // フィールド探索
+            Field[] fields = current.getDeclaredFields();
+            for (Field f : fields) {
+                if (f.getType() == boolean.class || f.getType() == Boolean.class) {
+                    String fName = f.getName().toLowerCase(Locale.ROOT);
+                    for (String kw : keywords) {
+                        if (fName.contains(kw.toLowerCase(Locale.ROOT))) {
+                            try {
+                                f.setAccessible(true);
+                                Object res = f.get(obj);
+                                if (res instanceof Boolean b && b) return true;
+                            } catch (Throwable ignored) {}
+                        }
+                    }
+                }
+            }
+            current = current.getSuperclass();
+        }
+
+        return false;
+    }
+
+    public static float extractFloatPropertyDeep(Object obj, String... keywords) {
+        if (obj == null) return 1.0f;
+
+        Class<?> current = obj.getClass();
+        while (current != null && current != Object.class) {
+            Method[] methods = current.getDeclaredMethods();
+            for (Method m : methods) {
+                if (m.getParameterCount() == 0 && (Number.class.isAssignableFrom(m.getReturnType()) || m.getReturnType() == float.class || m.getReturnType() == double.class)) {
+                    String mName = m.getName().toLowerCase(Locale.ROOT);
+                    for (String kw : keywords) {
+                        if (mName.contains(kw.toLowerCase(Locale.ROOT))) {
+                            try {
+                                m.setAccessible(true);
+                                Object res = m.invoke(obj);
+                                if (res instanceof Number n) return n.floatValue();
+                            } catch (Throwable ignored) {}
+                        }
+                    }
+                }
+            }
+
+            Field[] fields = current.getDeclaredFields();
+            for (Field f : fields) {
+                if (Number.class.isAssignableFrom(f.getType()) || f.getType() == float.class || f.getType() == double.class) {
+                    String fName = f.getName().toLowerCase(Locale.ROOT);
+                    for (String kw : keywords) {
+                        if (fName.contains(kw.toLowerCase(Locale.ROOT))) {
+                            try {
+                                f.setAccessible(true);
+                                Object res = f.get(obj);
+                                if (res instanceof Number n) return n.floatValue();
+                            } catch (Throwable ignored) {}
+                        }
+                    }
+                }
             }
             current = current.getSuperclass();
         }
@@ -217,26 +337,41 @@ public class TaCZCompatHandler {
         return 1.0f;
     }
 
-    public static String extractStringProperty(Object obj, String... names) {
+    public static String extractStringPropertyDeep(Object obj, String... keywords) {
         if (obj == null) return "";
-
-        for (String name : names) {
-            try {
-                Method m = obj.getClass().getMethod(name);
-                Object res = m.invoke(obj);
-                if (res != null) return res.toString();
-            } catch (Throwable ignored) {}
-        }
 
         Class<?> current = obj.getClass();
         while (current != null && current != Object.class) {
-            for (String name : names) {
-                try {
-                    Field f = current.getDeclaredField(name);
-                    f.setAccessible(true);
-                    Object res = f.get(obj);
-                    if (res != null) return res.toString();
-                } catch (Throwable ignored) {}
+            Method[] methods = current.getDeclaredMethods();
+            for (Method m : methods) {
+                if (m.getParameterCount() == 0 && m.getReturnType() == String.class) {
+                    String mName = m.getName().toLowerCase(Locale.ROOT);
+                    for (String kw : keywords) {
+                        if (mName.contains(kw.toLowerCase(Locale.ROOT))) {
+                            try {
+                                m.setAccessible(true);
+                                Object res = m.invoke(obj);
+                                if (res != null) return res.toString();
+                            } catch (Throwable ignored) {}
+                        }
+                    }
+                }
+            }
+
+            Field[] fields = current.getDeclaredFields();
+            for (Field f : fields) {
+                if (f.getType() == String.class) {
+                    String fName = f.getName().toLowerCase(Locale.ROOT);
+                    for (String kw : keywords) {
+                        if (fName.contains(kw.toLowerCase(Locale.ROOT))) {
+                            try {
+                                f.setAccessible(true);
+                                Object res = f.get(obj);
+                                if (res != null) return res.toString();
+                            } catch (Throwable ignored) {}
+                        }
+                    }
+                }
             }
             current = current.getSuperclass();
         }

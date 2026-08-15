@@ -11,7 +11,10 @@ import net.minecraft.world.damagesource.DamageType;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.TraceableEntity;
+import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
+import net.minecraft.world.entity.boss.enderdragon.EnderDragon;
 import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.event.entity.living.LivingDamageEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
@@ -21,10 +24,12 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.Locale;
+import java.util.Optional;
 
 /**
  * サーバー側でダメージイベントおよびキルイベントを高精度に検知し、攻撃元プレイヤーへパケット送信するハンドラ
- * TaCZイベント連携、多層リフレクション判定、および幾何学的フォールバックを完備
+ * TaCZイベント連携、3D Ray-Box幾何学レイキャスト、多層リフレクション判定を完備
  */
 public class DamageEventHandler {
 
@@ -141,17 +146,11 @@ public class DamageEventHandler {
             return true;
         }
         if (directEntity != null) {
-            if (checkBooleanFieldDeep(directEntity, "armorIgnore", "isArmorPiercing", "armorPiercing", "piercing", "bypassesArmor")) {
-                return true;
-            }
-            if (checkBooleanGetterDeep(directEntity, "isArmorIgnore", "isArmorPiercing", "getArmorPiercing", "hasArmorIgnore")) {
+            if (TaCZCompatHandler.extractBooleanPropertyDeep(directEntity, "armorpiercing", "armor_piercing", "armorignore", "armor_ignore", "piercing", "bypassesarmor")) {
                 return true;
             }
         }
-        if (checkBooleanFieldDeep(source, "armorIgnore", "isArmorPiercing", "armorPiercing", "piercing", "bypassesArmor")) {
-            return true;
-        }
-        if (checkBooleanGetterDeep(source, "isArmorIgnore", "isArmorPiercing", "getArmorPiercing", "hasArmorIgnore")) {
+        if (TaCZCompatHandler.extractBooleanPropertyDeep(source, "armorpiercing", "armor_piercing", "armorignore", "armor_ignore", "piercing", "bypassesarmor")) {
             return true;
         }
         return false;
@@ -163,7 +162,7 @@ public class DamageEventHandler {
     private static boolean isTaCZDamage(DamageSource source, Entity directEntity) {
         String msgId = source.getMsgId();
         if (msgId != null) {
-            String lower = msgId.toLowerCase();
+            String lower = msgId.toLowerCase(Locale.ROOT);
             if (lower.contains("tacz") || lower.contains("bullet") || lower.contains("gun") || lower.contains("kinetic")) {
                 return true;
             }
@@ -171,14 +170,14 @@ public class DamageEventHandler {
 
         if (source.typeHolder() != null && source.typeHolder().unwrapKey().isPresent()) {
             ResourceKey<DamageType> key = source.typeHolder().unwrapKey().get();
-            String location = key.location().toString().toLowerCase();
+            String location = key.location().toString().toLowerCase(Locale.ROOT);
             if (location.contains("tacz") || location.contains("bullet") || location.contains("gun") || location.contains("kinetic")) {
                 return true;
             }
         }
 
         if (directEntity != null) {
-            String directClassName = directEntity.getClass().getName().toLowerCase();
+            String directClassName = directEntity.getClass().getName().toLowerCase(Locale.ROOT);
             if (directClassName.contains("tacz") || directClassName.contains("bullet") || directClassName.contains("gun") || directClassName.contains("kinetic")) {
                 return true;
             }
@@ -188,60 +187,41 @@ public class DamageEventHandler {
     }
 
     /**
-     * 多層ヘッドショット判定
-     * (1. DamageType/MsgId判定 -> 2. DirectEntity/Source詳細リフレクション -> 3. 着弾座標幾何フォールバック)
+     * 多層高精度ヘッドショット判定
+     * (1. DamageType/MsgId判定 -> 2. 弾丸/DamageSource詳細リフレクション -> 3. 3D Ray-AABB幾何学レイキャスト判定)
      */
     public static boolean isHeadshotDamage(LivingEntity victim, DamageSource source, Entity directEntity, ServerPlayer attackingPlayer) {
-        // 1. DamageSourceのMsgIdおよびDamageType判定 (TaCZのtacz:bullet_headshot等)
+        if (victim == null) return false;
+
+        // 1. DamageSourceのMsgIdおよびDamageType判定
         String msgId = source.getMsgId();
         if (msgId != null) {
-            String lower = msgId.toLowerCase();
+            String lower = msgId.toLowerCase(Locale.ROOT);
             if (lower.contains("headshot") || lower.contains("head_shot")) {
                 return true;
             }
         }
 
         if (source.typeHolder() != null && source.typeHolder().unwrapKey().isPresent()) {
-            String location = source.typeHolder().unwrapKey().get().location().toString().toLowerCase();
+            String location = source.typeHolder().unwrapKey().get().location().toString().toLowerCase(Locale.ROOT);
             if (location.contains("headshot") || location.contains("head_shot")) {
                 return true;
             }
         }
 
-        // 2. DirectEntity (弾丸など) のヘッドショットフラグ・倍率判定
+        // 2. DirectEntity (弾丸など) のヘッドショットプロパティ判定
         if (directEntity != null) {
-            if (checkBooleanGetterDeep(directEntity, "isHeadshot", "isHeadShot", "getHeadshot", "hasHeadshot", "isHead")) {
-                return true;
-            }
-            if (checkBooleanFieldDeep(directEntity, "isHeadshot", "isHeadShot", "headshot", "isHead", "head_shot")) {
-                return true;
-            }
-            if (checkMultiplierDeep(directEntity, "getHeadshotMultiplier", "headshotMultiplier", "headShotMultiplier")) {
-                return true;
-            }
-            String directName = directEntity.getClass().getName().toLowerCase();
-            if (directName.contains("headshot")) {
-                return true;
-            }
-
-            // DirectEntity内部の HitResult / EntityResult / RayTraceResult フィールドを探索
-            if (checkNestedResultObjects(directEntity)) {
+            if (TaCZCompatHandler.extractHeadshotProperty(directEntity)) {
                 return true;
             }
         }
 
         // 3. DamageSourceのリフレクション判定
-        if (checkBooleanGetterDeep(source, "isHeadshot", "isHeadShot", "getHeadshot", "isHead")) {
-            return true;
-        }
-        if (checkBooleanFieldDeep(source, "isHeadshot", "isHeadShot", "headshot", "isHead", "head_shot")) {
-            return true;
-        }
-        if (checkMultiplierDeep(source, "getHeadshotMultiplier", "headshotMultiplier", "headShotMultiplier")) {
+        if (TaCZCompatHandler.extractHeadshotProperty(source)) {
             return true;
         }
 
-        // 4. 幾何学的ヘッドショットフォールバック判定
+        // 4. 幾何学的3D Ray-Box交差レイキャスト判定 (確実なフォールバック)
         if (checkGeometricHeadshot(victim, source, directEntity, attackingPlayer)) {
             return true;
         }
@@ -250,35 +230,68 @@ public class DamageEventHandler {
     }
 
     /**
-     * 着弾座標または射線を用いた安全な幾何学的ヘッドショット判定
+     * 攻撃者視線ベクトルおよび弾丸軌道を用いた高精度3D Ray-AABBヘッドショット判定
      */
     public static boolean checkGeometricHeadshot(LivingEntity victim, DamageSource source, Entity directEntity, ServerPlayer attackingPlayer) {
         if (victim == null) return false;
 
-        Vec3 hitPos = null;
-        if (source.getSourcePosition() != null) {
-            hitPos = source.getSourcePosition();
-        } else if (directEntity != null) {
-            hitPos = directEntity.position();
+        // 対象エンティティの頭部バウンディングボックス (AABB) の精密構築
+        AABB headBox = calculateEntityHeadBox(victim);
+
+        // 1. 攻撃元プレイヤーの3D視線レイキャスト判定
+        if (attackingPlayer != null) {
+            Vec3 eyePos = attackingPlayer.getEyePosition(1.0f);
+            Vec3 lookVec = attackingPlayer.getViewVector(1.0f).normalize();
+            Vec3 rayEnd = eyePos.add(lookVec.scale(300.0));
+
+            Optional<Vec3> headHit = headBox.clip(eyePos, rayEnd);
+            if (headHit.isPresent()) {
+                TaCZIndicatorMod.LOGGER.debug("[TaCZ Indicator] Headshot confirmed by player eye raycast: victim={}", victim.getId());
+                return true;
+            }
         }
 
-        // 着弾位置が取得できた場合
-        if (hitPos != null) {
-            double eyeY = victim.getEyeY();
-            double victimBaseY = victim.getY();
-            double victimHeight = victim.getBbHeight();
-            double headThresholdY = Math.max(victimBaseY + victimHeight * 0.70, eyeY - 0.25);
+        // 2. 弾丸（DirectEntity）の移動ベクトル軌道交差判定
+        if (directEntity != null) {
+            Vec3 bulletPos = directEntity.position();
+            Vec3 bulletVel = directEntity.getDeltaMovement();
+            double speed = bulletVel.length();
+            double lookback = Math.max(1.5, speed * 2.5);
 
-            // 着弾位置のY座標が頭部領域以上かつ、水平距離がモブの当たり判定以内
-            if (hitPos.y >= headThresholdY) {
-                double dx = hitPos.x - victim.getX();
-                double dz = hitPos.z - victim.getZ();
-                double horizDistSq = dx * dx + dz * dz;
-                double maxRadius = Math.max(0.5, victim.getBbWidth() * 1.5);
-                if (horizDistSq <= (maxRadius * maxRadius)) {
-                    TaCZIndicatorMod.LOGGER.debug("[TaCZ Indicator] Geometric headshot confirmed: hitY={}, thresholdY={}", hitPos.y, headThresholdY);
-                    return true;
+            Vec3 rayStart = bulletPos.subtract(bulletVel.normalize().scale(lookback));
+            Vec3 rayEnd = bulletPos.add(bulletVel.normalize().scale(lookback));
+
+            Optional<Vec3> bulletHit = headBox.clip(rayStart, rayEnd);
+            if (bulletHit.isPresent()) {
+                TaCZIndicatorMod.LOGGER.debug("[TaCZ Indicator] Headshot confirmed by bullet trajectory: victim={}", victim.getId());
+                return true;
+            }
+
+            // 弾丸の現在位置自体が頭部領域内にある場合
+            if (headBox.inflate(0.15).contains(bulletPos)) {
+                return true;
+            }
+        }
+
+        // 3. エンダードラゴン等マルチパートエンティティ対応
+        if (victim instanceof EnderDragon dragon) {
+            if (dragon.head != null) {
+                AABB dragonHeadBox = dragon.head.getBoundingBox().inflate(0.2);
+                if (attackingPlayer != null) {
+                    Vec3 eyePos = attackingPlayer.getEyePosition(1.0f);
+                    Vec3 lookVec = attackingPlayer.getViewVector(1.0f).normalize();
+                    if (dragonHeadBox.clip(eyePos, eyePos.add(lookVec.scale(300.0))).isPresent()) {
+                        return true;
+                    }
                 }
+            }
+        }
+
+        // 4. 着弾座標が直接渡されている場合の検証
+        if (source != null && source.getSourcePosition() != null) {
+            Vec3 srcPos = source.getSourcePosition();
+            if (headBox.inflate(0.25).contains(srcPos)) {
+                return true;
             }
         }
 
@@ -286,14 +299,37 @@ public class DamageEventHandler {
     }
 
     /**
+     * エンティティの頭部当たり判定AABBを算出
+     */
+    public static AABB calculateEntityHeadBox(LivingEntity victim) {
+        double victimY = victim.getY();
+        double victimHeight = victim.getBbHeight();
+        double eyeY = victim.getEyeY();
+
+        // 頭部の下限Y座標 (全高の上位30%または目線位置-0.3m)
+        double headMinY = Math.max(victimY + victimHeight * 0.68, eyeY - 0.35);
+        // 頭部の上限Y座標
+        double headMaxY = victimY + victimHeight + 0.25;
+
+        // 水平当たり判定幅 (若干の射撃許容マージン +0.15m)
+        double halfWidth = Math.max(0.35, (victim.getBbWidth() / 2.0) + 0.15);
+
+        return new AABB(
+                victim.getX() - halfWidth,
+                headMinY,
+                victim.getZ() - halfWidth,
+                victim.getX() + halfWidth,
+                headMaxY,
+                victim.getZ() + halfWidth
+        );
+    }
+
+    /**
      * クリティカル判定
      */
     private static boolean isCriticalDamage(ServerPlayer player, DamageSource source, Entity directEntity, boolean isTaCZ) {
         if (directEntity != null) {
-            if (checkBooleanGetterDeep(directEntity, "isCrit", "isCritical", "getCritical", "hasCrit")) {
-                return true;
-            }
-            if (checkBooleanFieldDeep(directEntity, "isCrit", "isCritical", "crit", "critical")) {
+            if (TaCZCompatHandler.extractBooleanPropertyDeep(directEntity, "crit", "critical")) {
                 return true;
             }
         }
@@ -303,101 +339,6 @@ public class DamageEventHandler {
             return true;
         }
 
-        return false;
-    }
-
-    // --- 深層リフレクション探索ユーティリティ ---
-
-    private static boolean checkBooleanGetterDeep(Object obj, String... methodNames) {
-        if (obj == null) return false;
-        for (String name : methodNames) {
-            try {
-                Method method = obj.getClass().getMethod(name);
-                Object res = method.invoke(obj);
-                if (res instanceof Boolean b && b) {
-                    return true;
-                }
-            } catch (Throwable ignored) {
-            }
-        }
-        return false;
-    }
-
-    private static boolean checkBooleanFieldDeep(Object obj, String... fieldNames) {
-        if (obj == null) return false;
-        Class<?> current = obj.getClass();
-        while (current != null && current != Object.class) {
-            for (String name : fieldNames) {
-                try {
-                    Field field = current.getDeclaredField(name);
-                    field.setAccessible(true);
-                    Object res = field.get(obj);
-                    if (res instanceof Boolean b && b) {
-                        return true;
-                    }
-                } catch (Throwable ignored) {
-                }
-            }
-            current = current.getSuperclass();
-        }
-        return false;
-    }
-
-    private static boolean checkMultiplierDeep(Object obj, String... names) {
-        if (obj == null) return false;
-        for (String name : names) {
-            try {
-                Method m = obj.getClass().getMethod(name);
-                Object res = m.invoke(obj);
-                if (res instanceof Number n && n.floatValue() > 1.05f) {
-                    return true;
-                }
-            } catch (Throwable ignored) {}
-        }
-        Class<?> current = obj.getClass();
-        while (current != null && current != Object.class) {
-            for (String name : names) {
-                try {
-                    Field f = current.getDeclaredField(name);
-                    f.setAccessible(true);
-                    Object res = f.get(obj);
-                    if (res instanceof Number n && n.floatValue() > 1.05f) {
-                        return true;
-                    }
-                } catch (Throwable ignored) {}
-            }
-            current = current.getSuperclass();
-        }
-        return false;
-    }
-
-    private static boolean checkNestedResultObjects(Object obj) {
-        if (obj == null) return false;
-        Class<?> current = obj.getClass();
-        while (current != null && current != Object.class) {
-            Field[] fields = current.getDeclaredFields();
-            for (Field field : fields) {
-                String fieldName = field.getName().toLowerCase();
-                if (fieldName.contains("result") || fieldName.contains("hit") || fieldName.contains("target")) {
-                    try {
-                        field.setAccessible(true);
-                        Object nested = field.get(obj);
-                        if (nested != null && nested != obj) {
-                            if (checkBooleanFieldDeep(nested, "isHeadshot", "isHeadShot", "headshot", "isHead", "head_shot")) {
-                                return true;
-                            }
-                            if (checkBooleanGetterDeep(nested, "isHeadshot", "isHeadShot", "getHeadshot", "hasHeadshot", "isHead")) {
-                                return true;
-                            }
-                            if (checkMultiplierDeep(nested, "getHeadshotMultiplier", "headshotMultiplier", "headShotMultiplier")) {
-                                return true;
-                            }
-                        }
-                    } catch (Throwable ignored) {}
-                }
-            }
-            current = current.getSuperclass();
-        }
         return false;
     }
 
@@ -435,13 +376,13 @@ public class DamageEventHandler {
         }
 
         if (directEntity != null) {
-            ServerPlayer shooter = tryExtractPlayer(victim, directEntity);
+            ServerPlayer shooter = tryExtractPlayer(directEntity);
             if (shooter != null) {
                 return shooter;
             }
         }
         if (attacker != null) {
-            ServerPlayer shooter = tryExtractPlayer(victim, attacker);
+            ServerPlayer shooter = tryExtractPlayer(attacker);
             if (shooter != null) {
                 return shooter;
             }
@@ -454,7 +395,7 @@ public class DamageEventHandler {
         return null;
     }
 
-    private static ServerPlayer tryExtractPlayer(LivingEntity victim, Entity entity) {
+    private static ServerPlayer tryExtractPlayer(Entity entity) {
         for (String methodName : new String[]{"getShooter", "getOwner", "getShootingEntity", "getThrower"}) {
             try {
                 Method method = entity.getClass().getMethod(methodName);

@@ -8,6 +8,7 @@
   "taczindicator.gui.category.hud": "HUD Layout",
   "taczindicator.gui.category.world3d": "3D World Space",
   "taczindicator.gui.category.colors": "Icons & Colors",
+  "taczindicator.gui.category.damage_vignette": "Damage Vignette",
 
   "taczindicator.gui.enabled": "Indicator: %s",
   "taczindicator.gui.only_player_damage": "Only Player: %s",
@@ -20,6 +21,8 @@
   "taczindicator.gui.show_critical_icon": "★ Critical: %s",
   "taczindicator.gui.show_armor_piercing_icon": "\uE002 AP Icon: %s",
   "taczindicator.gui.show_armor_damage_icon": "\uE001 Shield: %s",
+  "taczindicator.gui.damage_vignette": "Damage Red Effect: %s",
+  "taczindicator.gui.vignette_opacity": "Red Effect Opacity: %.2f",
   "taczindicator.gui.constant_size": "3D Equal Size: %s",
   "taczindicator.gui.xray": "3D X-Ray: %s",
   "taczindicator.gui.hud_scale": "HUD Scale: %.2f",

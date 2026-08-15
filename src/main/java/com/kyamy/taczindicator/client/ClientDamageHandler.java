@@ -103,6 +103,20 @@ public class ClientDamageHandler {
         lastHealthMap.clear();
         packetProcessedTicks.clear();
         playerAttackTargets.clear();
+        DamageVignetteRenderer.reset();
+    }
+
+    /**
+     * プレイヤー自身の被ダメージイベント検知（ヴィネットトリガー）
+     */
+    @SubscribeEvent
+    public static void onLivingHurt(net.minecraftforge.event.entity.living.LivingHurtEvent event) {
+        if (event.getEntity() != null && event.getEntity().level().isClientSide()) {
+            Minecraft mc = Minecraft.getInstance();
+            if (event.getEntity() == mc.player && event.getAmount() > 0.05f) {
+                DamageVignetteRenderer.triggerVignette(event.getAmount());
+            }
+        }
     }
 
     /**
@@ -150,7 +164,18 @@ public class ClientDamageHandler {
 
         Minecraft mc = Minecraft.getInstance();
         Player localPlayer = mc.player;
-        if (localPlayer == null || entity == localPlayer) {
+        if (localPlayer == null) {
+            return;
+        }
+
+        // ローカルプレイヤー自身の被ダメージ監視（HP減少によるヴィネットトリガーフォールバック）
+        if (entity == localPlayer) {
+            float currentHealth = localPlayer.getHealth();
+            Float prevHealth = lastHealthMap.get(localPlayer.getId());
+            if (prevHealth != null && (prevHealth - currentHealth) > 0.05f) {
+                DamageVignetteRenderer.triggerVignette(prevHealth - currentHealth);
+            }
+            lastHealthMap.put(localPlayer.getId(), currentHealth);
             return;
         }
 

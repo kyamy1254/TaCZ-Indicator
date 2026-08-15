@@ -19,6 +19,7 @@ public class ClientInit {
         MinecraftForge.EVENT_BUS.register(ClientDamageHandler.class);
         MinecraftForge.EVENT_BUS.register(DamageIndicatorHudRenderer.class);
         MinecraftForge.EVENT_BUS.register(DamageIndicatorRenderer.class);
+        MinecraftForge.EVENT_BUS.register(DamageVignetteRenderer.class);
         MinecraftForge.EVENT_BUS.register(ModKeyBindings.class);
 
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();

@@ -3,7 +3,7 @@
 ## 1. 概要
 
 Minecraft Forge 1.20.1 環境において、TaCZ (Timeless and Classics Zero) の銃撃ダメージおよび通常ダメージを検知し、**2D HUDレイヤー上** または3D空間でダメージ数値をポップアップ表示するMODの仕様書です。
-連続射撃や連撃時の **加算表示（累積ダメージスタック）**、**古いインジケータの上方スクロール（はけ）**、**カスタムビットマップフォントによる盾・盾貫通アイコン表示**、および **TaCZイベント連携・多層リフレクション・幾何フォールバックによる高精度ヘッドショット判定** をサポートしています。
+連続射撃や連撃時の **加算表示（累積ダメージスタック）**、**古いインジケータの上方スクロール（はけ）**、**カスタムビットマップフォントによる盾・盾貫通アイコン表示**、**3D Ray-Box交差レイキャスト＆多層APIリフレクションによる高精度ヘッドショット判定**、および **被ダメージ時の画面赤色効果（ダメージヴィネット・画面フラッシュ）の完全なカスタマイズ・オンオフ制御** をサポートしています。
 
 ## 2. アーキテクチャ構成
 
@@ -11,11 +11,11 @@ Minecraft Forge 1.20.1 環境において、TaCZ (Timeless and Classics Zero) �
 
 - **`DamageEventHandler`**:
   - `LivingDamageEvent` および `LivingDeathEvent` を購読し、攻撃元プレイヤー (`ServerPlayer`)、被弾モブ (`victim.getId()`)、ダメージ量、ダメージソースを高精度に解析。
-  - TaCZのAPIイベントキャッシュ (`TaCZCompatHandler`)、多層リフレクション探索、および着弾座標の幾何学判定を用いてヘッドショット・クリティカル・防具貫通（AP）を判定。
+  - TaCZのAPIイベントキャッシュ (`TaCZCompatHandler`)、多層リフレクション探索、および **攻撃者視線・弾道とモブ頭部領域AABBとの高精度3D Ray-Box交差判定（幾何学レイキャスト）** を用いてヘッドショット・クリティカル・防具貫通（AP）を判定。
   - `DamageIndicatorPacket` を生成して攻撃者プレイヤーへパケット送信。
 - **`TaCZCompatHandler`**:
-  - TaCZが環境に存在する場合、`com.tacz.guns.api.event.EntityHurtByGunEvent` (Pre/Post) の動的リスナーを登録。
-  - 被弾エンティティIDごとの高精度なヘッドショットフラグやAPフラグ、ヘッドショット倍率を短期キャッシュ。
+  - TaCZが環境に存在する場合、`EntityHurtByGunEvent` (Pre/Post, 各パッケージ階層) や `BulletHitEvent` の動的リスナーを包括的に登録。
+  - クラス階層全体の深層リフレクション走査により、ヘッドショットフラグ、APフラグ、ヘッドショット倍率を高精度に抽出・短期キャッシュ。
 
 ### 2.2 ネットワーク層 (`network`)
 
@@ -31,7 +31,7 @@ Minecraft Forge 1.20.1 環境において、TaCZ (Timeless and Classics Zero) �
 - **`IndicatorConfig`**:
   - 描画モード (`renderMode`: HUD_CROSSHAIR / HUD_PROJECTED / WORLD_3D)
   - 連続ダメージモード (`consecutiveMode`: ACCUMULATE / SCROLL_UP / OFF)
-  - コンボ持続時間、HUDスケール、スクロール間隔、カラー設定、各種アイコントグルの設定管理。
+  - コンボ持続時間、HUDスケール、スクロール間隔、カラー設定、各種アイコントグル、および **被ダメージ画面効果（ヴィネット）** の設定管理。
 - **`IndicatorInstance`**:
   - 個別のダメージ表示インスタンス。累積ダメージ計算、ヒット回数、上方スクロールオフセット、ポップアニメーション（バウンス拡大・減衰）、アルファ値フェードアウトを管理。
   - **フォントアイコン配置**:
@@ -43,8 +43,10 @@ Minecraft Forge 1.20.1 環境において、TaCZ (Timeless and Classics Zero) �
   - `RenderGuiEvent.Post` でHUD上に2Dテキストを描画。
 - **`DamageIndicatorRenderer`**:
   - `RenderLevelStageEvent` による3Dワールド空間描画（WORLD_3Dモード時）。
+- **`DamageVignetteRenderer`**:
+  - プレイヤーがダメージを受けた際に、画面四隅からの美しいグラデーションヴィネット（および画面フラッシュ）を描画。二乗イージングによる滑らかなフェードアウト処理を搭載。
 - **`IndicatorConfigScreen`**:
-  - ゲーム内設定GUI画面。リアルタイムプレビュー、ボタントグル、ドラッグによる位置調整を完備。
+  - ゲーム内設定GUI画面。リアルタイムプレビュー（ヴィネット赤色効果含む）、ボタントグル、ドラッグによる位置調整を完備。
 
 ### 2.4 リソース・カスタムフォント (`assets`)
 
@@ -57,15 +59,18 @@ Minecraft Forge 1.20.1 環境において、TaCZ (Timeless and Classics Zero) �
 ヘッドショット判定は以下の多層判定アルゴリズムにより行われます：
 
 1. **TaCZ API イベントキャッシュ**:
-   - `TaCZCompatHandler` が `EntityHurtByGunEvent` から直接取得した `isHeadshot` フラグまたは倍率 (`multiplier > 1.05f`) を参照。
+   - `TaCZCompatHandler` が `EntityHurtByGunEvent` / `BulletHitEvent` から直接取得した `isHeadshot` フラグまたは倍率 (`multiplier > 1.05f`) を参照。
 2. **DamageType / MsgId 判定**:
    - `DamageSource` のメッセージIDおよび `DamageType` リソース名に `headshot` / `head_shot` が含まれるか検査。
 3. **深層リフレクション探索**:
-   - `DamageSource`、`directEntity` (`EntityKineticBullet`)、および内部の `EntityResult` / `HitResult` オブジェクトの boolean フィールド/ゲッターを包括的に検査。
-4. **幾何学的フォールバック**:
-   - 弾丸着弾位置（またはダメージ発生座標）のY座標がモブ頭部領域（$y \ge \text{eyeY} - 0.25$ または頭部高さ70%以上）かつ水平当たり判定以内にあるかを検証。
+   - `DamageSource`、`directEntity` (`EntityKineticBullet`)、および内部の `EntityResult` / `HitResult` オブジェクトの全クラス階層にわたる boolean フィールド/ゲッターを包括的に検査。
+4. **3D Ray-Box交差幾何学レイキャスト (高精度フォールバック)**:
+   - 攻撃元プレイヤーの3D視線ベクトル（`eyePosition` および `viewVector`）からモブの頭部バウンディングボックス（`AABB headBox`: $y \ge \max(y + \text{height} \times 0.68, \text{eyeY} - 0.35)$）へのRay-AABBクリッピング交差判定（`headBox.clip(...)`）を実行。
+   - 弾丸の移動ベクトル（`deltaMovement`）および着弾点検証、エンダードラゴンの頭部パート（`dragon.head`）にも完全対応。
 
 ## 4. 設定項目一覧 (`taczindicator-client.toml`)
+
+### 4.1 全般・表示設定 (`[general]`, `[display]`, `[hud]`, `[world3d]`)
 
 | 項目名 | 型 | デフォルト値 | 説明 |
 | :--- | :--- | :--- | :--- |
@@ -87,6 +92,16 @@ Minecraft Forge 1.20.1 環境において、TaCZ (Timeless and Classics Zero) �
 | `headshotDamageColor` | int | `0xFF3333` | ヘッドショット色 |
 | `armorPiercingColor` | int | `0x33CCFF` | 防具貫通ダメージ色 |
 | `taczDamageColor` | int | `0xFFFFFF` | TaCZ銃撃ダメージ色 |
+
+### 4.2 被ダメージ画面赤色効果設定 (`[damage_vignette]`)
+
+| 項目名 | 型 | デフォルト値 | 説明 |
+| :--- | :--- | :--- | :--- |
+| `enableDamageVignette` | boolean | `true` | プレイヤー被ダメージ時の画面赤色効果（ヴィネット/フラッシュ）の有効/無効 |
+| `damageVignetteOpacity` | double | `0.45` | 画面赤色効果の最大不透明度 (0.0〜1.0) |
+| `damageVignetteDurationTicks` | int | `14` | 画面赤色効果の表示持続時間 (Ticks: 20Ticks = 1秒) |
+| `damageVignetteColor` | int | `0xFF0000` | 画面赤色効果の色 (RGB Hex 0xRRGGBB) |
+| `damageVignetteScaleWithDamage` | boolean | `true` | 受けたダメージ量に応じて濃さを自動調整するかどうか |
 
 ## 5. ビルドおよび動作環境
 

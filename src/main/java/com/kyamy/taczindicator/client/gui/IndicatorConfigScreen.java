@@ -1,5 +1,6 @@
 package com.kyamy.taczindicator.client.gui;
 
+import com.kyamy.taczindicator.client.DamageVignetteRenderer;
 import com.kyamy.taczindicator.config.IndicatorConfig;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -8,7 +9,7 @@ import net.minecraft.network.chat.Component;
 
 /**
  * ゲーム内リアルタイムGUI設定画面
- * 各機能の完全なON/OFFトグルおよびドラッグプレビュー位置調整を完備
+ * 各機能の完全なON/OFFトグル、被ダメ画面赤色効果の調整、およびドラッグプレビュー位置調整を完備
  */
 public class IndicatorConfigScreen extends Screen {
 
@@ -31,6 +32,10 @@ public class IndicatorConfigScreen extends Screen {
     private double tempHudScale;
     private double tempOffsetX;
     private double tempOffsetY;
+
+    // 被ダメージ画面赤色効果設定
+    private boolean tempDamageVignetteEnabled;
+    private double tempDamageVignetteOpacity;
 
     private boolean isDragging = false;
 
@@ -55,6 +60,9 @@ public class IndicatorConfigScreen extends Screen {
         this.tempHudScale = IndicatorConfig.getHudScale();
         this.tempOffsetX = IndicatorConfig.getCrosshairOffsetX();
         this.tempOffsetY = IndicatorConfig.getCrosshairOffsetY();
+
+        this.tempDamageVignetteEnabled = IndicatorConfig.isDamageVignetteEnabled();
+        this.tempDamageVignetteOpacity = IndicatorConfig.getDamageVignetteOpacity();
     }
 
     @Override
@@ -65,10 +73,10 @@ public class IndicatorConfigScreen extends Screen {
         int rightCol = this.width - 165;
         int btnWidth = 150;
         int btnHeight = 18;
-        int startY = 32;
+        int startY = 30;
         int gap = 20;
 
-        // --- 左側ボタングループ (基本動作・戦闘) ---
+        // --- 左側ボタングループ (基本動作・戦闘・画面効果) ---
         // 1. MOD有効/無効
         this.addRenderableWidget(Button.builder(getEnabledText(), btn -> {
             this.tempEnabled = !this.tempEnabled;
@@ -115,44 +123,50 @@ public class IndicatorConfigScreen extends Screen {
             btn.setMessage(getShowHitCountText());
         }).bounds(leftCol, startY + gap * 6, btnWidth, btnHeight).build());
 
-        // --- 右側ボタングループ (アイコン装飾・3D設定) ---
-        // 8. ☠ ヘッドショットアイコン
+        // 8. 被ダメージ画面赤色効果 (ヴィネット) トグル
+        this.addRenderableWidget(Button.builder(getDamageVignetteText(), btn -> {
+            this.tempDamageVignetteEnabled = !this.tempDamageVignetteEnabled;
+            btn.setMessage(getDamageVignetteText());
+        }).bounds(leftCol, startY + gap * 7, btnWidth, btnHeight).build());
+
+        // --- 右側ボタングループ (アイコン装飾・3D設定・ヴィネット調整) ---
+        // 9. ☠ ヘッドショットアイコン
         this.addRenderableWidget(Button.builder(getHeadshotIconText(), btn -> {
             this.tempShowHeadshotIcon = !this.tempShowHeadshotIcon;
             btn.setMessage(getHeadshotIconText());
         }).bounds(rightCol, startY, btnWidth, btnHeight).build());
 
-        // 9. ★ クリティカルアイコン
+        // 10. ★ クリティカルアイコン
         this.addRenderableWidget(Button.builder(getCriticalIconText(), btn -> {
             this.tempShowCriticalIcon = !this.tempShowCriticalIcon;
             btn.setMessage(getCriticalIconText());
         }).bounds(rightCol, startY + gap, btnWidth, btnHeight).build());
 
-        // 10. 🗡 防具貫通(AP)アイコン
+        // 11. 🗡 防具貫通(AP)アイコン
         this.addRenderableWidget(Button.builder(getArmorPiercingIconText(), btn -> {
             this.tempShowArmorPiercingIcon = !this.tempShowArmorPiercingIcon;
             btn.setMessage(getArmorPiercingIconText());
         }).bounds(rightCol, startY + gap * 2, btnWidth, btnHeight).build());
 
-        // 11. 🛡️ 防具軽減アイコン
+        // 12. 🛡️ 防具軽減アイコン
         this.addRenderableWidget(Button.builder(getArmorDamageIconText(), btn -> {
             this.tempShowArmorDamageIcon = !this.tempShowArmorDamageIcon;
             btn.setMessage(getArmorDamageIconText());
         }).bounds(rightCol, startY + gap * 3, btnWidth, btnHeight).build());
 
-        // 12. 3D画面上同一サイズ
+        // 13. 3D画面上同一サイズ
         this.addRenderableWidget(Button.builder(getConstantSizeText(), btn -> {
             this.tempEnableConstantSize = !this.tempEnableConstantSize;
             btn.setMessage(getConstantSizeText());
         }).bounds(rightCol, startY + gap * 4, btnWidth, btnHeight).build());
 
-        // 13. 3D壁越し透過X-Ray
+        // 14. 3D壁越し透過X-Ray
         this.addRenderableWidget(Button.builder(getXRayText(), btn -> {
             this.tempEnableXRay = !this.tempEnableXRay;
             btn.setMessage(getXRayText());
         }).bounds(rightCol, startY + gap * 5, btnWidth, btnHeight).build());
 
-        // 14. スケール縮小 / 拡大 [-] [+]
+        // 15. 文字スケール縮小 / 拡大 [-] [+]
         this.addRenderableWidget(Button.builder(Component.literal("Scale -"), btn -> {
             this.tempHudScale = Math.max(0.4, Math.round((this.tempHudScale - 0.1) * 10.0) / 10.0);
         }).bounds(rightCol, startY + gap * 6, 72, btnHeight).build());
@@ -161,18 +175,29 @@ public class IndicatorConfigScreen extends Screen {
             this.tempHudScale = Math.min(3.0, Math.round((this.tempHudScale + 0.1) * 10.0) / 10.0);
         }).bounds(rightCol + 78, startY + gap * 6, 72, btnHeight).build());
 
-        // 15. 位置リセット
+        // 16. 被ダメ画面効果 濃さ (不透明度) [-] [+]
+        this.addRenderableWidget(Button.builder(Component.literal("Red -"), btn -> {
+            this.tempDamageVignetteOpacity = Math.max(0.0, Math.round((this.tempDamageVignetteOpacity - 0.05) * 100.0) / 100.0);
+        }).bounds(rightCol, startY + gap * 7, 72, btnHeight).build());
+
+        this.addRenderableWidget(Button.builder(Component.literal("Red +"), btn -> {
+            this.tempDamageVignetteOpacity = Math.min(1.0, Math.round((this.tempDamageVignetteOpacity + 0.05) * 100.0) / 100.0);
+        }).bounds(rightCol + 78, startY + gap * 7, 72, btnHeight).build());
+
+        // 17. 位置 & 設定リセット
         this.addRenderableWidget(Button.builder(
                 Component.translatable("taczindicator.gui.reset_defaults"),
                 btn -> {
                     this.tempOffsetX = 18.0;
                     this.tempOffsetY = -4.0;
                     this.tempHudScale = 1.15;
+                    this.tempDamageVignetteEnabled = true;
+                    this.tempDamageVignetteOpacity = 0.45;
                 }
-        ).bounds(rightCol, startY + gap * 7, btnWidth, btnHeight).build());
+        ).bounds(rightCol, startY + gap * 8, btnWidth, btnHeight).build());
 
         // --- 下部アクションボタン ---
-        int bottomY = this.height - 26;
+        int bottomY = this.height - 24;
         int centerBtnWidth = 140;
 
         this.addRenderableWidget(Button.builder(
@@ -207,6 +232,9 @@ public class IndicatorConfigScreen extends Screen {
     private Component getShowHitCountText() {
         return Component.translatable("taczindicator.gui.show_hit_count", this.tempShowHitCount ? "§aON" : "§cOFF");
     }
+    private Component getDamageVignetteText() {
+        return Component.translatable("taczindicator.gui.damage_vignette", this.tempDamageVignetteEnabled ? "§aON" : "§cOFF");
+    }
     private Component getHeadshotIconText() {
         return Component.translatable("taczindicator.gui.show_headshot_icon", this.tempShowHeadshotIcon ? "§aON" : "§cOFF");
     }
@@ -229,14 +257,20 @@ public class IndicatorConfigScreen extends Screen {
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(guiGraphics);
+
+        // 被ダメージ赤色効果のプレビュー描画 (有効時)
+        if (this.tempDamageVignetteEnabled && this.tempDamageVignetteOpacity > 0.01) {
+            DamageVignetteRenderer.renderPreview(guiGraphics, this.width, this.height, this.tempDamageVignetteOpacity * 0.7, 0xFF0000);
+        }
+
         super.render(guiGraphics, mouseX, mouseY, partialTick);
 
         int centerX = this.width / 2;
         int centerY = this.height / 2;
 
         // タイトル & 操作案内
-        guiGraphics.drawCenteredString(this.font, this.title, centerX, 8, 0xFFFFFF);
-        guiGraphics.drawCenteredString(this.font, Component.translatable("taczindicator.gui.drag_instruction"), centerX, 20, 0xAAAAAA);
+        guiGraphics.drawCenteredString(this.font, this.title, centerX, 6, 0xFFFFFF);
+        guiGraphics.drawCenteredString(this.font, Component.translatable("taczindicator.gui.drag_instruction"), centerX, 18, 0xAAAAAA);
 
         // 中央クロスヘア
         guiGraphics.drawString(this.font, "+", centerX - this.font.width("+") / 2, centerY - this.font.lineHeight / 2, 0xFFFFFF, false);
@@ -285,8 +319,10 @@ public class IndicatorConfigScreen extends Screen {
             guiGraphics.pose().popPose();
         }
 
-        // スケール & 座標表示
-        guiGraphics.drawString(this.font, String.format(java.util.Locale.ROOT, "Scale: %.1fx  |  Pos: (%.0f, %.0f)", this.tempHudScale, this.tempOffsetX, this.tempOffsetY), centerX - 60, this.height - 42, 0xDDDDDD, false);
+        // スケール & 座標 & ヴィネット濃さ表示
+        String infoStr = String.format(java.util.Locale.ROOT, "Scale: %.1fx | Pos: (%.0f, %.0f) | Red: %.2f (%s)",
+                this.tempHudScale, this.tempOffsetX, this.tempOffsetY, this.tempDamageVignetteOpacity, this.tempDamageVignetteEnabled ? "ON" : "OFF");
+        guiGraphics.drawCenteredString(this.font, infoStr, centerX, this.height - 38, 0xDDDDDD);
     }
 
     @Override
@@ -339,6 +375,9 @@ public class IndicatorConfigScreen extends Screen {
         IndicatorConfig.CLIENT.hudScale.set(this.tempHudScale);
         IndicatorConfig.CLIENT.crosshairOffsetX.set(this.tempOffsetX);
         IndicatorConfig.CLIENT.crosshairOffsetY.set(this.tempOffsetY);
+
+        IndicatorConfig.CLIENT.enableDamageVignette.set(this.tempDamageVignetteEnabled);
+        IndicatorConfig.CLIENT.damageVignetteOpacity.set(this.tempDamageVignetteOpacity);
 
         IndicatorConfig.saveConfig();
 

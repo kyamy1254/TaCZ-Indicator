@@ -1,5 +1,6 @@
 package com.kyamy.taczindicator.test;
 
+import com.kyamy.taczindicator.server.TaCZCompatHandler;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -8,7 +9,7 @@ import java.util.Locale;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * ダメージインジケータの計算ロジック、累積加算、スクロール処理、フォント表記、および幾何ヘッドショット判定に関する単体テスト
+ * ダメージインジケータの計算ロジック、累積加算、スクロール処理、3D Ray-Box幾何ヘッドショット判定、およびヴィネット減衰に関する単体テスト
  */
 public class IndicatorLogicTest {
 
@@ -118,30 +119,78 @@ public class IndicatorLogicTest {
     }
 
     @Test
-    @DisplayName("幾何学的ヘッドショット判定モデルの検証")
-    void testGeometricHeadshotCalculation() {
+    @DisplayName("3D Ray-Box交差レイキャストヘッドショット判定の数学検証")
+    void testRayBoxHeadshotIntersection() {
+        // ターゲット (モブ): 座標 (0, 64, 50), 身長 1.8m, 幅 0.6m
+        double victimX = 0.0;
         double victimY = 64.0;
-        double victimEyeY = 65.62;
-        double victimHeight = 1.8;
-        double victimWidth = 0.6;
+        double victimZ = 50.0;
+        double height = 1.8;
+        double eyeY = 65.62;
 
-        double headThresholdY = Math.max(victimY + victimHeight * 0.70, victimEyeY - 0.25);
-        // 64.0 + 1.26 = 65.26, 65.62 - 0.25 = 65.37 -> threshold is 65.37
-        assertEquals(65.37, headThresholdY, 1e-4);
+        double headMinY = Math.max(victimY + height * 0.68, eyeY - 0.35); // 65.27
+        double headMaxY = victimY + height + 0.25; // 66.05
+        double halfWidth = 0.45;
 
-        // 頭部への着弾 (Y = 65.5) -> ヘッドショット合格
-        double hitYHead = 65.5;
-        assertTrue(hitYHead >= headThresholdY);
+        double boxMinX = victimX - halfWidth;
+        double boxMaxX = victimX + halfWidth;
+        double boxMinZ = victimZ - halfWidth;
+        double boxMaxZ = victimZ + halfWidth;
 
-        // 胴体への着弾 (Y = 64.8) -> 不合格
-        double hitYBody = 64.8;
-        assertFalse(hitYBody >= headThresholdY);
+        // 1. スナイパー視線 (プレイヤー位置: (0, 65.5, 0) -> 頭部 (0, 65.5, 50) へ水平照準)
+        double eyePosX = 0.0, eyePosY = 65.5, eyePosZ = 0.0;
+        double rayDirX = 0.0, rayDirY = 0.0, rayDirZ = 1.0;
 
-        // 水平範囲チェック (中心からの距離)
-        double maxRadius = Math.max(0.5, victimWidth * 1.5);
-        assertEquals(0.9, maxRadius, 1e-4);
-        double distSqCenter = 0.2 * 0.2 + 0.1 * 0.1;
-        assertTrue(distSqCenter <= maxRadius * maxRadius);
+        boolean hitsHead = rayIntersectsAABB(eyePosX, eyePosY, eyePosZ, rayDirX, rayDirY, rayDirZ,
+                boxMinX, headMinY, boxMinZ, boxMaxX, headMaxY, boxMaxZ);
+        assertTrue(hitsHead, "スナイパー視線がモブの頭部AABBに命中するべき");
+
+        // 2. 胴体照準 (Y = 64.5)
+        boolean hitsBody = rayIntersectsAABB(eyePosX, 64.5, eyePosZ, rayDirX, 0.0, rayDirZ,
+                boxMinX, headMinY, boxMinZ, boxMaxX, headMaxY, boxMaxZ);
+        assertFalse(hitsBody, "胴体狙いの射撃は頭部AABBに命中しないべき");
+    }
+
+    @Test
+    @DisplayName("被ダメージ画面赤色効果（ヴィネット）の減衰計算検証")
+    void testDamageVignetteAlphaEasing() {
+        int maxDuration = 14;
+        double baseOpacity = 0.45;
+        float damageIntensity = 1.0f;
+
+        // 開始直後 (progress = 1.0)
+        int remaining = 14;
+        float progressStart = remaining / (float) maxDuration;
+        float alphaStart = progressStart * progressStart * (float) baseOpacity * damageIntensity;
+        assertEquals(0.45f, alphaStart, 1e-4);
+
+        // 中間 (progress = 0.5)
+        remaining = 7;
+        float progressMid = remaining / (float) maxDuration;
+        float alphaMid = progressMid * progressMid * (float) baseOpacity * damageIntensity;
+        assertEquals(0.1125f, alphaMid, 1e-4);
+
+        // 終了時 (progress = 0.0)
+        remaining = 0;
+        float progressEnd = remaining / (float) maxDuration;
+        float alphaEnd = progressEnd * progressEnd * (float) baseOpacity * damageIntensity;
+        assertEquals(0.0f, alphaEnd, 1e-4);
+    }
+
+    @Test
+    @DisplayName("包括的リフレクション抽出ヘルパーの動作検証")
+    void testDeepReflectionExtraction() {
+        // モックイベントクラス
+        class MockTaCZEvent {
+            public boolean isHeadShot() { return true; }
+            public float getHeadshotMultiplier() { return 2.5f; }
+            public boolean isArmorPiercing() { return true; }
+        }
+
+        MockTaCZEvent mockEvent = new MockTaCZEvent();
+        assertTrue(TaCZCompatHandler.extractHeadshotProperty(mockEvent));
+        assertTrue(TaCZCompatHandler.extractBooleanPropertyDeep(mockEvent, "armorpiercing"));
+        assertEquals(2.5f, TaCZCompatHandler.extractFloatPropertyDeep(mockEvent, "headshotmultiplier"), 1e-4);
     }
 
     @Test
@@ -193,6 +242,33 @@ public class IndicatorLogicTest {
         float ndcUp = clipRightUp.y / clipRightUp.w;
         assertTrue(ndcRight > 0.0f);
         assertTrue(ndcUp > 0.0f);
+    }
+
+    private static boolean rayIntersectsAABB(double rX, double rY, double rZ,
+                                             double dX, double dY, double dZ,
+                                             double minX, double minY, double minZ,
+                                             double maxX, double maxY, double maxZ) {
+        double tmin = (minX - rX) / (dX == 0 ? 1e-9 : dX);
+        double tmax = (maxX - rX) / (dX == 0 ? 1e-9 : dX);
+        if (tmin > tmax) { double temp = tmin; tmin = tmax; tmax = temp; }
+
+        double tymin = (minY - rY) / (dY == 0 ? 1e-9 : dY);
+        double tymax = (maxY - rY) / (dY == 0 ? 1e-9 : dY);
+        if (tymin > tymax) { double temp = tymin; tymin = tymax; tymax = temp; }
+
+        if ((tmin > tymax) || (tymin > tmax)) return false;
+        if (tymin > tmin) tmin = tymin;
+        if (tymax < tmax) tmax = tymax;
+
+        double tzmin = (minZ - rZ) / (dZ == 0 ? 1e-9 : dZ);
+        double tzmax = (maxZ - rZ) / (dZ == 0 ? 1e-9 : dZ);
+        if (tzmin > tzmax) { double temp = tzmin; tzmin = tzmax; tzmax = temp; }
+
+        if ((tmin > tzmax) || (tzmin > tmax)) return false;
+        if (tzmin > tmin) tmin = tzmin;
+        if (tzmax < tmax) tmax = tzmax;
+
+        return tmax >= 0;
     }
 
     private float calculateAlpha(int ageTicks, int maxLifetime) {

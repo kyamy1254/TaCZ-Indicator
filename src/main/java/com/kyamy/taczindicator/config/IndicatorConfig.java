@@ -6,7 +6,7 @@ import net.minecraftforge.fml.config.ModConfig;
 
 /**
  * ダメージインジケータの設定管理クラス
- * わかりやすく整理されたカテゴリ構造（全般・表示・HUD・3D空間・アイコン/カラー）
+ * わかりやすく整理されたカテゴリ構造（全般・表示・HUD・3D空間・アイコン/カラー・被ダメ画面エフェクト）
  */
 public class IndicatorConfig {
     public static final ForgeConfigSpec CLIENT_SPEC;
@@ -80,6 +80,13 @@ public class IndicatorConfig {
     public static int getArmorPiercingColor() { return CLIENT.getArmorPiercingColor(); }
     public static int getTaczColor() { return CLIENT.getTaczColor(); }
 
+    // [damage_vignette]
+    public static boolean isDamageVignetteEnabled() { return CLIENT.isDamageVignetteEnabled(); }
+    public static double getDamageVignetteOpacity() { return CLIENT.getDamageVignetteOpacity(); }
+    public static int getDamageVignetteDurationTicks() { return CLIENT.getDamageVignetteDurationTicks(); }
+    public static int getDamageVignetteColor() { return CLIENT.getDamageVignetteColor(); }
+    public static boolean isDamageVignetteScaleWithDamage() { return CLIENT.isDamageVignetteScaleWithDamage(); }
+
     public static class Client {
         // [general] 全般設定
         public final ForgeConfigSpec.BooleanValue enabled;
@@ -121,6 +128,13 @@ public class IndicatorConfig {
         public final ForgeConfigSpec.IntValue headshotDamageColor;
         public final ForgeConfigSpec.IntValue armorPiercingColor;
         public final ForgeConfigSpec.IntValue taczDamageColor;
+
+        // [damage_vignette] 被ダメージ画面エフェクト設定
+        public final ForgeConfigSpec.BooleanValue enableDamageVignette;
+        public final ForgeConfigSpec.DoubleValue damageVignetteOpacity;
+        public final ForgeConfigSpec.IntValue damageVignetteDurationTicks;
+        public final ForgeConfigSpec.IntValue damageVignetteColor;
+        public final ForgeConfigSpec.BooleanValue damageVignetteScaleWithDamage;
 
         public Client(ForgeConfigSpec.Builder builder) {
             // -------------------------------------------------------------
@@ -297,6 +311,35 @@ public class IndicatorConfig {
                     .defineInRange("taczDamageColor", 0xFFFFFF, 0, 0xFFFFFF);
 
             builder.pop();
+
+            // -------------------------------------------------------------
+            // 6. [damage_vignette] 被ダメージ画面エフェクト設定
+            // -------------------------------------------------------------
+            builder.comment("==================================================",
+                            " 6. 被ダメージ画面効果設定 (Damage Screen Vignette Settings)",
+                            "==================================================").push("damage_vignette");
+
+            enableDamageVignette = builder
+                    .comment("プレイヤー被ダメージ時の画面赤色効果（ヴィネット/フラッシュ）を有効化するかどうか")
+                    .define("enableDamageVignette", true);
+
+            damageVignetteOpacity = builder
+                    .comment("被ダメージ画面効果の最大不透明度 (0.0: 完全透明/無効, 1.0: 最大不透明度)")
+                    .defineInRange("damageVignetteOpacity", 0.45D, 0.0D, 1.0D);
+
+            damageVignetteDurationTicks = builder
+                    .comment("被ダメージ画面効果の表示持続時間（Tick単位: 20Ticks = 1秒）")
+                    .defineInRange("damageVignetteDurationTicks", 14, 3, 60);
+
+            damageVignetteColor = builder
+                    .comment("被ダメージ画面効果の色 (RGB Hex 0xRRGGBB, デフォルト: 0xFF0000)")
+                    .defineInRange("damageVignetteColor", 0xFF0000, 0, 0xFFFFFF);
+
+            damageVignetteScaleWithDamage = builder
+                    .comment("受けたダメージ量に応じて画面赤色効果の濃さを自動調整するかどうか")
+                    .define("damageVignetteScaleWithDamage", true);
+
+            builder.pop();
         }
 
         // 安全なゲッター
@@ -392,6 +435,21 @@ public class IndicatorConfig {
         }
         public int getTaczColor() {
             try { return taczDamageColor != null ? taczDamageColor.get() : 0xFFFFFF; } catch (Exception e) { return 0xFFFFFF; }
+        }
+        public boolean isDamageVignetteEnabled() {
+            try { return enableDamageVignette != null && enableDamageVignette.get(); } catch (Exception e) { return true; }
+        }
+        public double getDamageVignetteOpacity() {
+            try { return damageVignetteOpacity != null ? damageVignetteOpacity.get() : 0.45D; } catch (Exception e) { return 0.45D; }
+        }
+        public int getDamageVignetteDurationTicks() {
+            try { return damageVignetteDurationTicks != null ? damageVignetteDurationTicks.get() : 14; } catch (Exception e) { return 14; }
+        }
+        public int getDamageVignetteColor() {
+            try { return damageVignetteColor != null ? damageVignetteColor.get() : 0xFF0000; } catch (Exception e) { return 0xFF0000; }
+        }
+        public boolean isDamageVignetteScaleWithDamage() {
+            try { return damageVignetteScaleWithDamage != null && damageVignetteScaleWithDamage.get(); } catch (Exception e) { return true; }
         }
     }
 }
