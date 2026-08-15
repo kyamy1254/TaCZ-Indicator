@@ -1,8 +1,8 @@
 {
-  "key.categories.taczindicator": "TaCZ ダメージインジケータ",
+  "key.categories.taczindicator": "[TaCZ] Damage Indicator",
   "key.taczindicator.open_config": "設定画面を開く",
 
-  "taczindicator.gui.title": "TaCZ ダメージインジケータ 設定",
+  "taczindicator.gui.title": "[TaCZ] Damage Indicator 設定",
   "taczindicator.gui.category.general": "全般設定",
   "taczindicator.gui.category.display": "表示・コンボ",
   "taczindicator.gui.category.hud": "HUD配置調整",
