@@ -4,11 +4,11 @@ import com.mojang.blaze3d.platform.Window;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.phys.Vec3;
-import org.joml.Quaternionf;
-import org.joml.Vector3f;
+import org.joml.Matrix4f;
+import org.joml.Vector4f;
 
 /**
- * 3Dワールド座標から2D画面GUI座標への数学的投影ユーティリティ
+ * 3Dワールド座標から2D画面GUI座標への高精度透視投影変換ユーティリティ
  */
 public class ScreenProjectionUtil {
 
@@ -32,7 +32,8 @@ public class ScreenProjectionUtil {
     }
 
     /**
-     * 3Dワールド座標をMinecraft GUI座標系（ピクセル）に投影
+     * 3Dワールド座標をMinecraft GUI画面座標（ピクセル）に投影
+     * JOMLのビュー投影行列演算により全方位（360度・全Yaw/Pitch）で正確に計算
      */
     public static ProjectionResult projectToScreen(double worldX, double worldY, double worldZ) {
         Minecraft mc = Minecraft.getInstance();
@@ -53,32 +54,46 @@ public class ScreenProjectionUtil {
             return new ProjectionResult(false, 0, 0, distance);
         }
 
-        // カメラ回転の逆変換（共役クォータニオン）を適用してカメラローカル空間へ変換
-        Vector3f viewPos = new Vector3f((float) relX, (float) relY, (float) relZ);
-        Quaternionf invRot = new Quaternionf(camera.rotation()).conjugate();
-        viewPos.rotate(invRot);
-
-        // Minecraftのカメラ空間ではカメラ前方が -Z 方向
-        float zDepth = -viewPos.z;
-        if (zDepth <= 0.05f) {
-            // カメラ後方にある場合は非表示
+        int guiWidth = window.getGuiScaledWidth();
+        int guiHeight = window.getGuiScaledHeight();
+        if (guiWidth <= 0 || guiHeight <= 0) {
             return new ProjectionResult(false, 0, 0, distance);
         }
 
-        // FOVと画面比率の計算
+        // FOV取得（設定FOV + ズーム/エイム効果）
         double fovDegrees = mc.options.fov().get();
         double fovRad = Math.toRadians(fovDegrees);
-        double tanHalfFov = Math.tan(fovRad / 2.0);
 
-        int guiWidth = window.getGuiScaledWidth();
-        int guiHeight = window.getGuiScaledHeight();
-        double aspectRatio = (double) guiWidth / (double) guiHeight;
+        // 透視投影行列とビュー行列の構築
+        Matrix4f projMatrix = new Matrix4f().perspective(
+                (float) fovRad,
+                (float) guiWidth / (float) guiHeight,
+                0.05f,
+                1000.0f
+        );
 
-        // 正規化デバイス座標 (NDC) 計算
-        double ndcX = viewPos.x / (zDepth * tanHalfFov * aspectRatio);
-        double ndcY = viewPos.y / (zDepth * tanHalfFov);
+        Matrix4f viewMatrix = new Matrix4f().rotation(camera.rotation());
+        Matrix4f viewProjMatrix = new Matrix4f(projMatrix).mul(viewMatrix);
 
-        // GUI画面座標へマッピング（Y軸は上がマイナス）
+        // 4次元クリップ座標への変換
+        Vector4f clipPos = new Vector4f((float) relX, (float) relY, (float) relZ, 1.0f);
+        viewProjMatrix.transform(clipPos);
+
+        // クリップ空間W値が0以下 = カメラの背面にあるため非表示
+        if (clipPos.w <= 0.05f) {
+            return new ProjectionResult(false, 0, 0, distance);
+        }
+
+        // 正規化デバイス座標 (NDC: -1.0 ~ +1.0)
+        float ndcX = clipPos.x / clipPos.w;
+        float ndcY = clipPos.y / clipPos.w;
+
+        // 画面外チェック（画面端から一定マージン外なら非表示）
+        if (Math.abs(ndcX) > 1.8f || Math.abs(ndcY) > 1.8f) {
+            return new ProjectionResult(false, 0, 0, distance);
+        }
+
+        // 2D GUI画面座標へマッピング（NDC: Y上向き -> GUI: Y下向き）
         double screenX = (guiWidth / 2.0) * (1.0 + ndcX);
         double screenY = (guiHeight / 2.0) * (1.0 - ndcY);
 

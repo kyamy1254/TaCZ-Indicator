@@ -122,26 +122,30 @@ public class IndicatorLogicTest {
     @Test
     @DisplayName("3Dから2D画面座標への透視投影数学モデルの検証")
     void testProjectionMath() {
-        // カメラが (0, 0, 0) を向き、前方が -Z、右が +X、上が +Y
-        double viewX = 2.0D;
-        double viewY = 1.0D;
-        double zDepth = 10.0D; // 前方10m
+        org.joml.Matrix4f proj = new org.joml.Matrix4f().perspective(
+                (float) Math.toRadians(70.0),
+                854.0f / 480.0f,
+                0.05f,
+                1000.0f
+        );
 
-        double fovRad = Math.toRadians(70.0D);
-        double tanHalfFov = Math.tan(fovRad / 2.0);
-        int guiWidth = 854;
-        int guiHeight = 480;
-        double aspectRatio = (double) guiWidth / (double) guiHeight;
+        // 前方 (0, 0, -10)
+        org.joml.Vector4f clip = new org.joml.Vector4f(0.0f, 0.0f, -10.0f, 1.0f);
+        proj.transform(clip);
+        assertTrue(clip.w > 0.0f);
+        float ndcX = clip.x / clip.w;
+        float ndcY = clip.y / clip.w;
+        assertEquals(0.0f, ndcX, 1e-4);
+        assertEquals(0.0f, ndcY, 1e-4);
 
-        double ndcX = viewX / (zDepth * tanHalfFov * aspectRatio);
-        double ndcY = viewY / (zDepth * tanHalfFov);
-
-        double screenX = (guiWidth / 2.0) * (1.0 + ndcX);
-        double screenY = (guiHeight / 2.0) * (1.0 - ndcY);
-
-        // 画面中央より右上にあることを検証
-        assertTrue(screenX > (guiWidth / 2.0));
-        assertTrue(screenY < (guiHeight / 2.0));
+        // 右上 (2, 1, -10)
+        org.joml.Vector4f clipRightUp = new org.joml.Vector4f(2.0f, 1.0f, -10.0f, 1.0f);
+        proj.transform(clipRightUp);
+        assertTrue(clipRightUp.w > 0.0f);
+        float ndcRight = clipRightUp.x / clipRightUp.w;
+        float ndcUp = clipRightUp.y / clipRightUp.w;
+        assertTrue(ndcRight > 0.0f);
+        assertTrue(ndcUp > 0.0f);
     }
 
     private float calculateAlpha(int ageTicks, int maxLifetime) {
