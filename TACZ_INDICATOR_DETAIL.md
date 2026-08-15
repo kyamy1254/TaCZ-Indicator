@@ -2,14 +2,15 @@
 
 ## 1. 概要
 
-Minecraft Forge 1.20.1 環境において、TaCZ (Timeless and Classics Zero) の銃撃ダメージおよび通常ダメージを検知し、距離に関係なく画面上で一定の見かけサイズ（角度サイズ一定）でダメージ数値をポップアップ表示するMODの仕様書です。
+Minecraft Forge 1.20.1 環境において、TaCZ (Timeless and Classics Zero) の銃撃ダメージおよび通常ダメージを検知し、**2D HUDレイヤー上** または3D空間でダメージ数値をポップアップ表示するMODの仕様書です。
+連続射撃や連撃時の **加算表示（累積ダメージスタック）** および **古いインジケータの上方スクロール（はけ）** をサポートしています。
 
 ## 2. アーキテクチャ構成
 
 ### 2.1 サーバーサイド (`server`)
 
 - **`DamageEventHandler`**:
-  - `LivingDamageEvent` をキャッチし、攻撃者 (`ServerPlayer`)、ダメージ量、ダメージソースを解析。
+  - `LivingDamageEvent` をキャッチし、攻撃者 (`ServerPlayer`)、被弾モブ (`victim.getId()`)、ダメージ量、ダメージソースを解析。
   - TaCZの弾丸・ダメージソース（銃撃、ヘッドショット）やバニラのクリティカル攻撃を判別。
   - 被弾モブの頭部位置座標を取得し、`DamageIndicatorPacket` を生成して攻撃者プレイヤーへパケット送信。
 
@@ -18,42 +19,57 @@ Minecraft Forge 1.20.1 環境において、TaCZ (Timeless and Classics Zero) �
 - **`ModMessages`**:
   - Forge `SimpleChannel` を使用したパケット通信路の定義。
 - **`DamageIndicatorPacket`**:
-  - 発生座標 $(X, Y, Z)$、ダメージ値 (float)、ヘッドショットフラグ (boolean)、クリティカルフラグ (boolean)、TaCZフラグ (boolean) をバイナリシリアライズ/デシリアライズ。
+  - 対象エンティティID (`int entityId`)、発生座標 $(X, Y, Z)$、ダメージ値 (float)、ヘッドショットフラグ (boolean)、クリティカルフラグ (boolean)、TaCZフラグ (boolean) をバイナリシリアライズ/デシリアライズ。
 
 ### 2.3 クライアントサイド (`client`)
 
 - **`IndicatorConfig`**:
-  - Forge Client Config による設定（有効/無効、基本スケール、距離スケール係数、生存Tick数、上昇速度、X-Ray透過表示、色設定など）。
+  - 描画モード (`renderMode`: HUD_PROJECTED / HUD_CROSSHAIR / WORLD_3D)
+  - 連続ダメージモード (`consecutiveMode`: ACCUMULATE / SCROLL_UP / OFF)
+  - コンボ持続時間、HUDスケール、スクロール間隔、カラー設定などの設定管理。
 - **`IndicatorInstance`**:
-  - 個々のダメージ表示インスタンス。Tick経過による上昇アニメーションと終盤のアルファ値フェードアウトを管理。
+  - 個別のダメージ表示インスタンス。累積ダメージ計算、ヒット回数、上方スクロールオフセット、ポップアニメーション（バウンス拡大・減衰）、アルファ値フェードアウトを管理。
 - **`DamageIndicatorManager`**:
-  - アクティブなインジケータ群のライフサイクル管理。高レート連射時の重なりを防ぐジッター（散乱）付与。
+  - アクティブなインジケータ群のライフサイクル管理。
+  - 同一ターゲットへの連続ヒット時の加算処理（ACCUMULATE）や古いインジケータの押し上げ処理（SCROLL_UP）を制御。
+- **`ScreenProjectionUtil`**:
+  - 3Dワールド座標からMinecraftの2D GUI画面座標への高精度な透視投影計算。
+- **`DamageIndicatorHudRenderer`**:
+  - `RenderGuiEvent.Post` でHUD上に2Dテキストを描画。鮮明なフォントとスムーズなアニメーションを提供。
 - **`DamageIndicatorRenderer`**:
-  - `RenderLevelStageEvent` (AFTER_TRANSLUCENT_BLOCKS) で描画。
-  - カメラ位置との距離 $d$ を計算し、透視投影の距離減衰を相殺するスケーリング行列を適用。
-  - カメラ回転（ビルボード）を適用し、常にカメラ正面を向くようにテキストを描画。
+  - `RenderLevelStageEvent` による3Dワールド空間描画（WORLD_3Dモード時）。
 
-## 3. 数学的モデル (距離非依存スケーリング)
+## 3. 連続ダメージ処理仕様
 
-3D透視投影空間において、対象物が見える画面上の角度サイズ $\theta$ は概ね $\theta \approx \frac{S_{\text{world}}}{d}$ となります。
-本MODでは、描画時のワールドスケール $S_{\text{world}}$ を距離 $d$ に比例させることで画面上でのサイズ $\theta$ を一定に保ちます：
-
-$$S_{\text{world}} = S_{\text{base}} \times \max(1.0, d \times \text{distanceScaleFactor})$$
-
-- ヘッドショット時: $1.35 \times S_{\text{world}}$
-- クリティカル時: $1.15 \times S_{\text{world}}$
+1. **加算モード (`ACCUMULATE` - デフォルト)**:
+   - 同一エンティティへ一定時間内（デフォルト30Ticks = 1.5秒）に連続でダメージを与えた場合、数値を合算（例: `15.0` → `30.0` → `45.0`）。
+   - ヒットごとにポップアップが拡大バウンスし、表示タイマーをリセット。
+   - `showHitCount` を有効にすると `45.0 x3` のようにヒット回数も付加表示。
+2. **上方スクロールモード (`SCROLL_UP`)**:
+   - 新しいダメージが発生するたびに、直前のインジケータを一定ピクセル（`scrollSpacing`）上方向へ押し上げ。
+   - 連続ヒットした数値が画面上に整然と並びながら上方へはけてフェードアウト。
+3. **個別モード (`OFF`)**:
+   - 従来の個別ポップアップ表示。
 
 ## 4. 設定項目一覧 (`taczindicator-client.toml`)
 
 | 項目名 | 型 | デフォルト値 | 説明 |
 | :--- | :--- | :--- | :--- |
 | `enabled` | boolean | `true` | インジケータ表示の有効/無効 |
-| `enableConstantSize` | boolean | `true` | 距離に関わらず一定サイズで表示するか |
-| `baseScale` | double | `0.025` | 基本描画スケール |
-| `distanceScaleFactor` | double | `0.05` | 距離に応じた拡大係数 |
-| `lifetimeTicks` | int | `30` | 表示持続時間 (20Ticks = 1秒) |
-| `riseSpeed` | double | `0.03` | 上昇アニメーション速度 |
-| `enableXRay` | boolean | `true` | 壁越しの透過表示 |
+| `renderMode` | enum | `HUD_PROJECTED` | 描画モード (`HUD_PROJECTED`, `HUD_CROSSHAIR`, `WORLD_3D`) |
+| `consecutiveMode` | enum | `ACCUMULATE` | 連続ダメージ処理 (`ACCUMULATE`, `SCROLL_UP`, `OFF`) |
+| `comboTimeoutTicks` | int | `30` | 連続ヒット判定時間 (20Ticks = 1秒) |
+| `hudScale` | double | `1.0` | HUD表示時の文字拡大スケール |
+| `scrollSpacing` | double | `12.0` | SCROLL_UPモード時の押し上げ間隔（px） |
+| `crosshairOffsetX` | double | `15.0` | HUD_CROSSHAIR時の画面中心Xオフセット |
+| `crosshairOffsetY` | double | `-8.0` | HUD_CROSSHAIR時の画面中心Yオフセット |
+| `showHitCount` | boolean | `false` | 加算モード時のヒット数表示 (`x3` など) |
+| `enableConstantSize` | boolean | `true` | WORLD_3D時: 距離に関わらず一定サイズで表示 |
+| `baseScale` | double | `0.025` | WORLD_3D時: 基本描画スケール |
+| `distanceScaleFactor` | double | `1.0` | WORLD_3D時: 距離に応じた拡大係数 |
+| `lifetimeTicks` | int | `35` | 表示持続時間 |
+| `riseSpeed` | double | `0.025` | 上昇アニメーション速度 |
+| `enableXRay` | boolean | `true` | WORLD_3D時: 壁越しの透過表示 |
 | `showHeadshotIcon` | boolean | `true` | ヘッドショット表示 (`[HS]`) の有無 |
 | `decimalPlaces` | int | `1` | ダメージ値の小数点表示桁数 |
 | `normalDamageColor` | int | `0xFFFFFF` | 通常ダメージ色 |

@@ -88,6 +88,7 @@ public class DamageEventHandler {
 
         // パケット送信
         DamageIndicatorPacket packet = new DamageIndicatorPacket(
+                victim.getId(),
                 posX, posY, posZ,
                 damage,
                 isHeadshot,

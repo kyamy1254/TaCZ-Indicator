@@ -10,3 +10,4 @@ run/
 .classpath
 .project
 .settings/
+bin/

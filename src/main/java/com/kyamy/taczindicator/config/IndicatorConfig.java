@@ -11,6 +11,18 @@ public class IndicatorConfig {
     public static final ForgeConfigSpec CLIENT_SPEC;
     public static final Client CLIENT;
 
+    public enum RenderMode {
+        HUD_PROJECTED,
+        HUD_CROSSHAIR,
+        WORLD_3D
+    }
+
+    public enum ConsecutiveMode {
+        ACCUMULATE,
+        SCROLL_UP,
+        OFF
+    }
+
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
         CLIENT = new Client(builder);
@@ -24,6 +36,16 @@ public class IndicatorConfig {
     public static class Client {
         // 全般設定
         public final ForgeConfigSpec.BooleanValue enabled;
+        public final ForgeConfigSpec.EnumValue<RenderMode> renderMode;
+        public final ForgeConfigSpec.EnumValue<ConsecutiveMode> consecutiveMode;
+        public final ForgeConfigSpec.IntValue comboTimeoutTicks;
+        public final ForgeConfigSpec.DoubleValue hudScale;
+        public final ForgeConfigSpec.DoubleValue scrollSpacing;
+        public final ForgeConfigSpec.DoubleValue crosshairOffsetX;
+        public final ForgeConfigSpec.DoubleValue crosshairOffsetY;
+        public final ForgeConfigSpec.BooleanValue showHitCount;
+
+        // 3D/ワールド設定（WORLD_3Dモード時）
         public final ForgeConfigSpec.BooleanValue enableConstantSize;
         public final ForgeConfigSpec.DoubleValue baseScale;
         public final ForgeConfigSpec.DoubleValue distanceScaleFactor;
@@ -48,16 +70,48 @@ public class IndicatorConfig {
                     .comment("インジケータ表示を有効化するかどうか")
                     .define("enabled", true);
 
+            renderMode = builder
+                    .comment("描画モード: HUD_PROJECTED (画面HUD上に投影), HUD_CROSSHAIR (照準横のHUD), WORLD_3D (3Dワールド空間)")
+                    .defineEnum("renderMode", RenderMode.HUD_PROJECTED);
+
+            consecutiveMode = builder
+                    .comment("連続ダメージ処理モード: ACCUMULATE (加算・累積表示), SCROLL_UP (古い数値を上へはけさせる/スクロール), OFF (個別表示)")
+                    .defineEnum("consecutiveMode", ConsecutiveMode.ACCUMULATE);
+
+            comboTimeoutTicks = builder
+                    .comment("連続ヒットと判定する持続時間（Tick単位: 20Ticks = 1秒）")
+                    .defineInRange("comboTimeoutTicks", 30, 5, 100);
+
+            hudScale = builder
+                    .comment("HUD表示時の文字拡大スケール (1.0 = 標準)")
+                    .defineInRange("hudScale", 1.0D, 0.2D, 4.0D);
+
+            scrollSpacing = builder
+                    .comment("SCROLL_UPモードで古いインジケータを上に押し上げる間隔（ピクセル）")
+                    .defineInRange("scrollSpacing", 12.0D, 2.0D, 50.0D);
+
+            crosshairOffsetX = builder
+                    .comment("HUD_CROSSHAIRモード時の画面中心からのXオフセット（ピクセル）")
+                    .defineInRange("crosshairOffsetX", 15.0D, -300.0D, 300.0D);
+
+            crosshairOffsetY = builder
+                    .comment("HUD_CROSSHAIRモード時の画面中心からのYオフセット（ピクセル）")
+                    .defineInRange("crosshairOffsetY", -8.0D, -300.0D, 300.0D);
+
+            showHitCount = builder
+                    .comment("加算モード時にヒット数を表示するかどうか (例: 45.0 x3)")
+                    .define("showHitCount", false);
+
             enableConstantSize = builder
-                    .comment("距離に関わらず画面上で同じ大きさ（角度サイズ一定）で表示するかどうか")
+                    .comment("WORLD_3Dモード時: 距離に関わらず画面上で同じ大きさ（角度サイズ一定）で表示するかどうか")
                     .define("enableConstantSize", true);
 
             baseScale = builder
-                    .comment("インジケータの基本スケール（1ブロックを基準としたフォント比率）")
+                    .comment("WORLD_3Dモード時: 基本描画スケール（1ブロックを基準としたフォント比率）")
                     .defineInRange("baseScale", 0.025D, 0.001D, 0.5D);
 
             distanceScaleFactor = builder
-                    .comment("距離に応じた拡大係数（一定サイズモードで 1.0 = 完全等比拡大）")
+                    .comment("WORLD_3Dモード時: 距離に応じた拡大係数（一定サイズモードで 1.0 = 完全等比拡大）")
                     .defineInRange("distanceScaleFactor", 1.0D, 0.01D, 10.0D);
 
             lifetimeTicks = builder
@@ -69,7 +123,7 @@ public class IndicatorConfig {
                     .defineInRange("riseSpeed", 0.025D, 0.0D, 0.5D);
 
             enableXRay = builder
-                    .comment("壁や遮蔽物の向こう側でもインジケータを透過表示するかどうか")
+                    .comment("WORLD_3Dモード時: 壁や遮蔽物の向こう側でもインジケータを透過表示するかどうか")
                     .define("enableXRay", true);
 
             showHeadshotIcon = builder
@@ -106,6 +160,38 @@ public class IndicatorConfig {
         // 安全なゲッター（Config未ロード時でも安全にデフォルト値を返す）
         public boolean isEnabled() {
             try { return enabled.get(); } catch (Exception e) { return true; }
+        }
+
+        public RenderMode getRenderMode() {
+            try { return renderMode.get(); } catch (Exception e) { return RenderMode.HUD_PROJECTED; }
+        }
+
+        public ConsecutiveMode getConsecutiveMode() {
+            try { return consecutiveMode.get(); } catch (Exception e) { return ConsecutiveMode.ACCUMULATE; }
+        }
+
+        public int getComboTimeoutTicks() {
+            try { return comboTimeoutTicks.get(); } catch (Exception e) { return 30; }
+        }
+
+        public double getHudScale() {
+            try { return hudScale.get(); } catch (Exception e) { return 1.0D; }
+        }
+
+        public double getScrollSpacing() {
+            try { return scrollSpacing.get(); } catch (Exception e) { return 12.0D; }
+        }
+
+        public double getCrosshairOffsetX() {
+            try { return crosshairOffsetX.get(); } catch (Exception e) { return 15.0D; }
+        }
+
+        public double getCrosshairOffsetY() {
+            try { return crosshairOffsetY.get(); } catch (Exception e) { return -8.0D; }
+        }
+
+        public boolean isShowHitCount() {
+            try { return showHitCount.get(); } catch (Exception e) { return false; }
         }
 
         public boolean isConstantSize() {

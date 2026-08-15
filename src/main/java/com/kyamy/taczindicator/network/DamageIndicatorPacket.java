@@ -12,6 +12,7 @@ import java.util.function.Supplier;
  * サーバーからクライアントへダメージ発生情報を通知するネットワークパケット
  */
 public class DamageIndicatorPacket {
+    private final int entityId;
     private final double posX;
     private final double posY;
     private final double posZ;
@@ -20,7 +21,8 @@ public class DamageIndicatorPacket {
     private final boolean isCritical;
     private final boolean isTaCZ;
 
-    public DamageIndicatorPacket(double posX, double posY, double posZ, float damage, boolean isHeadshot, boolean isCritical, boolean isTaCZ) {
+    public DamageIndicatorPacket(int entityId, double posX, double posY, double posZ, float damage, boolean isHeadshot, boolean isCritical, boolean isTaCZ) {
+        this.entityId = entityId;
         this.posX = posX;
         this.posY = posY;
         this.posZ = posZ;
@@ -31,6 +33,7 @@ public class DamageIndicatorPacket {
     }
 
     public DamageIndicatorPacket(FriendlyByteBuf buf) {
+        this.entityId = buf.readVarInt();
         this.posX = buf.readDouble();
         this.posY = buf.readDouble();
         this.posZ = buf.readDouble();
@@ -41,6 +44,7 @@ public class DamageIndicatorPacket {
     }
 
     public void toBytes(FriendlyByteBuf buf) {
+        buf.writeVarInt(this.entityId);
         buf.writeDouble(this.posX);
         buf.writeDouble(this.posY);
         buf.writeDouble(this.posZ);
@@ -55,12 +59,13 @@ public class DamageIndicatorPacket {
         context.enqueueWork(() -> {
             // クライアント側でのみ処理を実行
             DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> {
-                ClientDamageHandler.handlePacket(posX, posY, posZ, damage, isHeadshot, isCritical, isTaCZ);
+                ClientDamageHandler.handlePacket(entityId, posX, posY, posZ, damage, isHeadshot, isCritical, isTaCZ);
             });
         });
         context.setPacketHandled(true);
     }
 
+    public int getEntityId() { return entityId; }
     public double getPosX() { return posX; }
     public double getPosY() { return posY; }
     public double getPosZ() { return posZ; }

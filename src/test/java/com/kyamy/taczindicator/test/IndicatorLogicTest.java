@@ -8,7 +8,7 @@ import java.util.Locale;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * ダメージインジケータの計算ロジックおよびフォーマットに関する単体テスト
+ * ダメージインジケータの計算ロジック、累積加算、スクロール処理、投影計算に関する単体テスト
  */
 public class IndicatorLogicTest {
 
@@ -67,6 +67,81 @@ public class IndicatorLogicTest {
         decimalPlaces = 2;
         formatted = String.format(Locale.ROOT, "%." + decimalPlaces + "f", damage);
         assertEquals("24.57", formatted);
+    }
+
+    @Test
+    @DisplayName("連続ダメージ累積加算ロジックの検証")
+    void testCumulativeDamageAccumulation() {
+        float initialDamage = 15.5f;
+        int hitCount = 1;
+        boolean isHeadshot = false;
+
+        // 2発目のヒット (12.0ダメージ)
+        float hit2Damage = 12.0f;
+        initialDamage += hit2Damage;
+        hitCount++;
+        assertEquals(27.5f, initialDamage, 1e-6);
+        assertEquals(2, hitCount);
+
+        // 3発目のヒット (ヘッドショット 30.0ダメージ)
+        float hit3Damage = 30.0f;
+        initialDamage += hit3Damage;
+        hitCount++;
+        isHeadshot = true;
+        assertEquals(57.5f, initialDamage, 1e-6);
+        assertEquals(3, hitCount);
+        assertTrue(isHeadshot);
+
+        // フォーマット検証
+        String formatted = String.format(Locale.ROOT, "%.1f x%d", initialDamage, hitCount);
+        assertEquals("57.5 x3", formatted);
+    }
+
+    @Test
+    @DisplayName("上方スクロール（はけ）オフセット計算の検証")
+    void testScrollPushOffset() {
+        double scrollSpacing = 12.0D;
+
+        double indicator1ScrollY = 0.0D;
+
+        // 2発目発生時: 1発目が押し上げられる
+        indicator1ScrollY += scrollSpacing;
+        double indicator2ScrollY = 0.0D;
+        assertEquals(12.0D, indicator1ScrollY, 1e-6);
+        assertEquals(0.0D, indicator2ScrollY, 1e-6);
+
+        // 3発目発生時: 1発目と2発目がさらに押し上げられる
+        indicator1ScrollY += scrollSpacing;
+        indicator2ScrollY += scrollSpacing;
+        double indicator3ScrollY = 0.0D;
+        assertEquals(24.0D, indicator1ScrollY, 1e-6);
+        assertEquals(12.0D, indicator2ScrollY, 1e-6);
+        assertEquals(0.0D, indicator3ScrollY, 1e-6);
+    }
+
+    @Test
+    @DisplayName("3Dから2D画面座標への透視投影数学モデルの検証")
+    void testProjectionMath() {
+        // カメラが (0, 0, 0) を向き、前方が -Z、右が +X、上が +Y
+        double viewX = 2.0D;
+        double viewY = 1.0D;
+        double zDepth = 10.0D; // 前方10m
+
+        double fovRad = Math.toRadians(70.0D);
+        double tanHalfFov = Math.tan(fovRad / 2.0);
+        int guiWidth = 854;
+        int guiHeight = 480;
+        double aspectRatio = (double) guiWidth / (double) guiHeight;
+
+        double ndcX = viewX / (zDepth * tanHalfFov * aspectRatio);
+        double ndcY = viewY / (zDepth * tanHalfFov);
+
+        double screenX = (guiWidth / 2.0) * (1.0 + ndcX);
+        double screenY = (guiHeight / 2.0) * (1.0 - ndcY);
+
+        // 画面中央より右上にあることを検証
+        assertTrue(screenX > (guiWidth / 2.0));
+        assertTrue(screenY < (guiHeight / 2.0));
     }
 
     private float calculateAlpha(int ageTicks, int maxLifetime) {

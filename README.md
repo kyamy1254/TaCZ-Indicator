@@ -1,15 +1,29 @@
 # TaCZ Damage Indicator (Minecraft Forge 1.20.1)
 
-Minecraft Forge 1.20.1 向けのダメージインジケータMODです。
-特に **TaCZ (Timeless and Classics Zero)** の長距離狙撃やフルオート射撃に対応し、**「遠距離でも近距離でも画面上で同じ大きさで表示される」** 視認性の高いダメージ表示機能を提供します。
+Minecraft Forge 1.20.1 向けの視認性・操作性に優れたダメージインジケータMODです。
+特に **TaCZ (Timeless and Classics Zero)** のフルオート射撃や長距離狙撃に対応し、**「HUDレイヤーでの鮮明な表示」** および **「連続射撃の加算（スタック）/ 上方はけ（スクロール）」** 機能を提供します。
 
 ---
 
 ## 主な特徴
-- 🎯 **距離非依存レンダリング**: 500m先のスナイピングでも至近距離の射撃でも、画面上で常に一定の見やすいサイズでダメージ数を表示。
+
+- 🖥️ **HUD 2D レンダリング**: 3Dワールド座標から2D画面座標への投影により、HUDレイヤー上にクリアで美麗なダメージ数値を描画。
+- 💥 **連続ダメージの加算表示 (Accumulation)**: フルオート連射や連続ヒット時にダメージがリアルタイムに合算され、爽快なヒットパルス演出。
+- 📜 **古いインジケータの上方スクロール (Scroll Up)**: 連射時に古いダメージ値が上へスムーズにはけていき、画面の見やすさを維持。
+- 🎯 **距離非依存レンダリング**: 500m先のスナイピングでも至近距離でも、画面上で常に一定の見やすいサイズでダメージ数を表示。
 - 🔫 **TaCZ 特化サポート**: TaCZの銃弾、ヘッドショット、クリティカルダメージを識別し、カラーやアイコンで強調表示。
-- 👁️ **壁越し透過（X-Ray）**: 障害物や壁の奥にいる敵に与えたダメージも視認可能。
-- ⚙️ **充実したカスタマイズ**: 表示サイズ、表示時間、上昇速度、カラー、小数点桁数などをクライアント設定で自由に変更可能。
+- ⚙️ **充実したカスタマイズ**: 描画モード（HUD投影 / レティクル横 / 3D空間）、連続ダメージモード（加算 / スクロール / 個別）、スケール、カラーなどをクライアント設定で自由に変更可能。
+
+---
+
+## 設定項目 (`config/taczindicator-client.toml`)
+
+- `renderMode`: `HUD_PROJECTED` (HUD投影), `HUD_CROSSHAIR` (照準横), `WORLD_3D` (3D空間)
+- `consecutiveMode`: `ACCUMULATE` (加算), `SCROLL_UP` (上方スクロール), `OFF` (個別)
+- `comboTimeoutTicks`: 連続ヒット判定の受付時間 (デフォルト: 30Ticks)
+- `hudScale`: HUD文字スケール (デフォルト: 1.0)
+- `scrollSpacing`: スクロール時の押し上げ間隔 (デフォルト: 12.0px)
+- `showHitCount`: 加算時のヒット数表示 (`45.0 x3` 等)
 
 ---
 
@@ -18,14 +32,12 @@ Minecraft Forge 1.20.1 向けのダメージインジケータMODです。
 Gradle Wrapper を使用してビルドします（Java 17 が必要です）：
 
 ```powershell
-# Windows
+# 単体テストの実行
+.\gradlew.bat test
+
+# MOD jar のビルド (build/libs/taczindicator-1.0.0.jar が生成されます)
 .\gradlew.bat build
-
-# Linux / macOS
-./gradlew build
 ```
-
-ビルドが完了すると、`build/libs/taczindicator-1.0.0.jar` にMODファイル（reobf済み正規MOD jar）が生成されます。
 
 ---
 

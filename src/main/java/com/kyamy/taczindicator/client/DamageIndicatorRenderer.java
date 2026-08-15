@@ -40,7 +40,7 @@ public class DamageIndicatorRenderer {
             return;
         }
 
-        if (!IndicatorConfig.CLIENT.isEnabled()) {
+        if (!IndicatorConfig.CLIENT.isEnabled() || IndicatorConfig.CLIENT.getRenderMode() != IndicatorConfig.RenderMode.WORLD_3D) {
             return;
         }
 
