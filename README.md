@@ -1,4 +1,4 @@
-# TaCZ Damage Indicator (Minecraft Forge 1.20.1)
+# TaCZ Indicator (Minecraft Forge 1.20.1)
 
 Minecraft Forge 1.20.1 向けの視認性・操作性に優れたダメージインジケータMODです。
 特に **TaCZ (Timeless and Classics Zero)** のフルオート射撃や長距離狙撃に対応し、**「HUDレイヤーでの鮮明な表示」** および **「連続射撃の加算（スタック）/ 上方はけ（スクロール）」** 機能を提供します。

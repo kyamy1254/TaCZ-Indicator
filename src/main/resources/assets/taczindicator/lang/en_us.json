@@ -1,8 +1,8 @@
 {
-  "key.categories.taczindicator": "[TaCZ] Damage Indicator",
+  "key.categories.taczindicator": "TaCZ Indicator",
   "key.taczindicator.open_config": "Open Indicator Settings",
 
-  "taczindicator.gui.title": "[TaCZ] Damage Indicator Settings",
+  "taczindicator.gui.title": "TaCZ Indicator Settings",
   "taczindicator.gui.category.general": "General",
   "taczindicator.gui.category.display": "Display & Combo",
   "taczindicator.gui.category.hud": "HUD Layout",

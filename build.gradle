@@ -74,7 +74,7 @@ tasks.named('processResources', ProcessResources).configure {
             forge_version_range : '[47.1.0,)',
             loader_version_range: '[47,)',
             mod_id              : 'taczindicator',
-            mod_name            : 'TaCZ Damage Indicator',
+            mod_name            : 'TaCZ Indicator',
             mod_license         : 'MIT',
             mod_version         : version,
             mod_authors         : 'Kyamy',

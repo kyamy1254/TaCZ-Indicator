@@ -1,4 +1,4 @@
-# TaCZ Damage Indicator 仕様書 (TACZ_INDICATOR_DETAIL)
+# TaCZ Indicator 仕様書 (TACZ_INDICATOR_DETAIL)
 
 ## 1. 概要
 

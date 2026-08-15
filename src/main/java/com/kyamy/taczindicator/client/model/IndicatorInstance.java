@@ -101,15 +101,11 @@ public class IndicatorInstance {
 
         this.formattedText = numText;
 
-        // カラーの決定 (優先度: Headshot > Critical > ArmorPiercing > TaCZ > Normal)
+        // カラーの決定 (色分けは 通常 / クリティカル / ヘッドショット のみ)
         if (this.isHeadshot) {
             this.color = IndicatorConfig.getHeadshotColor();
         } else if (this.isCritical) {
             this.color = IndicatorConfig.getCriticalColor();
-        } else if (this.isArmorPiercing) {
-            this.color = IndicatorConfig.getArmorPiercingColor();
-        } else if (this.isTaCZ) {
-            this.color = IndicatorConfig.getTaczColor();
         } else {
             this.color = IndicatorConfig.getNormalColor();
         }
