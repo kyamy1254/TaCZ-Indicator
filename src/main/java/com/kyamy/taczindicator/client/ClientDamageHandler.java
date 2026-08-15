@@ -28,7 +28,7 @@ import java.util.Map;
 public class ClientDamageHandler {
 
     public enum OperatingMode {
-        SERVER_SYNCED("§aServer同期 (SERVER_SYNCED)", "サーバーMOD稼働中・高精度ヘッドショット/クリティカルパケット受信"),
+        SERVER_SYNCED("§aServer同期 (SERVER_SYNCED)", "サーバーMOD稼働中・高精度ヘッドショット/クリティカル/キルパケット受信"),
         CLIENT_STANDALONE("§eClient単体 (CLIENT_STANDALONE)", "サーバー未導入・クライアント側ローカル攻撃検知中");
 
         private final String displayName;
@@ -60,7 +60,9 @@ public class ClientDamageHandler {
     /**
      * サーバーからのパケット受信ハンドラ (Server同期モード確定)
      */
-    public static void handlePacket(int entityId, double x, double y, double z, float damage, boolean isHeadshot, boolean isCritical, boolean isTaCZ) {
+    public static void handlePacket(int entityId, double x, double y, double z, float damage,
+                                    boolean isHeadshot, boolean isCritical, boolean isTaCZ,
+                                    boolean isArmorPiercing, boolean hitArmor, boolean isKill, String victimName) {
         if (!serverPacketReceived) {
             serverPacketReceived = true;
             currentOperatingMode = OperatingMode.SERVER_SYNCED;
@@ -68,7 +70,15 @@ public class ClientDamageHandler {
         }
 
         packetProcessedTicks.put(entityId, clientTickCount);
-        DamageIndicatorManager.getInstance().addIndicator(entityId, x, y, z, damage, isHeadshot, isCritical, isTaCZ);
+        DamageIndicatorManager.getInstance().addIndicator(entityId, x, y, z, damage, isHeadshot, isCritical, isTaCZ, isArmorPiercing, hitArmor);
+
+        if (isKill && IndicatorConfig.isShowKillAlert()) {
+            DamageIndicatorManager.getInstance().addKillAlert(victimName);
+        }
+    }
+
+    public static void handlePacket(int entityId, double x, double y, double z, float damage, boolean isHeadshot, boolean isCritical, boolean isTaCZ) {
+        handlePacket(entityId, x, y, z, damage, isHeadshot, isCritical, isTaCZ, false, false, false, "");
     }
 
     /**
@@ -165,6 +175,7 @@ public class ClientDamageHandler {
                         double posX = entity.getX();
                         double posY = entity.getEyeY();
                         double posZ = entity.getZ();
+                        boolean hitArmor = entity.getArmorValue() > 0;
 
                         // クライアント側フォールバックインジケータ生成
                         DamageIndicatorManager.getInstance().addIndicator(
@@ -173,8 +184,14 @@ public class ClientDamageHandler {
                                 delta,
                                 false,
                                 false,
-                                false
+                                false,
+                                false,
+                                hitArmor
                         );
+
+                        if ((entity.isDeadOrDying() || currentHealth <= 0.0f) && IndicatorConfig.isShowKillAlert()) {
+                            DamageIndicatorManager.getInstance().addKillAlert(entity.getDisplayName().getString());
+                        }
                     }
                 }
             }
@@ -250,12 +267,15 @@ public class ClientDamageHandler {
     }
 
     public static void sendModeStatusMessage(Player player) {
-        player.sendSystemMessage(Component.literal("§6[TaCZ Indicator] §f動作ステータス情報:"));
-        player.sendSystemMessage(Component.literal("  §7- 動作モード: " + currentOperatingMode.getDisplayName()));
+        player.sendSystemMessage(Component.translatable("taczindicator.status.title"));
+        player.sendSystemMessage(Component.translatable("taczindicator.status.mode", currentOperatingMode.getDisplayName()));
         player.sendSystemMessage(Component.literal("    §8" + currentOperatingMode.getDescription()));
-        player.sendSystemMessage(Component.literal("  §7- 描画モード: §b" + IndicatorConfig.getRenderMode().name()));
-        player.sendSystemMessage(Component.literal("  §7- 連続ダメージ: §b" + IndicatorConfig.getConsecutiveMode().name()));
-        player.sendSystemMessage(Component.literal("  §7- プレイヤー限定: " + (IndicatorConfig.isOnlyPlayerDamage() ? "§a有効 (ON)" : "§c全ダメージ表示 (OFF)")));
+        player.sendSystemMessage(Component.translatable("taczindicator.status.render_mode", IndicatorConfig.getRenderMode().name()));
+        player.sendSystemMessage(Component.translatable("taczindicator.status.combo_mode", IndicatorConfig.getConsecutiveMode().name()));
+        player.sendSystemMessage(Component.translatable("taczindicator.status.only_player",
+                IndicatorConfig.isOnlyPlayerDamage() ? Component.translatable("taczindicator.status.enabled") : Component.translatable("taczindicator.status.disabled")));
+        player.sendSystemMessage(Component.translatable("taczindicator.status.only_tacz",
+                IndicatorConfig.isOnlyTaczDamage() ? Component.translatable("taczindicator.status.enabled") : Component.translatable("taczindicator.status.disabled")));
     }
 
     public static OperatingMode getCurrentOperatingMode() {

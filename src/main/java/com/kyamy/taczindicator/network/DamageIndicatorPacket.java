@@ -9,7 +9,7 @@ import net.minecraftforge.network.NetworkEvent;
 import java.util.function.Supplier;
 
 /**
- * サーバーからクライアントへダメージ発生情報を通知するネットワークパケット
+ * サーバーからクライアントへダメージ発生・キル情報を通知するネットワークパケット
  */
 public class DamageIndicatorPacket {
     private final int entityId;
@@ -20,8 +20,14 @@ public class DamageIndicatorPacket {
     private final boolean isHeadshot;
     private final boolean isCritical;
     private final boolean isTaCZ;
+    private final boolean isArmorPiercing;
+    private final boolean hitArmor;
+    private final boolean isKill;
+    private final String victimName;
 
-    public DamageIndicatorPacket(int entityId, double posX, double posY, double posZ, float damage, boolean isHeadshot, boolean isCritical, boolean isTaCZ) {
+    public DamageIndicatorPacket(int entityId, double posX, double posY, double posZ, float damage,
+                                 boolean isHeadshot, boolean isCritical, boolean isTaCZ,
+                                 boolean isArmorPiercing, boolean hitArmor, boolean isKill, String victimName) {
         this.entityId = entityId;
         this.posX = posX;
         this.posY = posY;
@@ -30,6 +36,10 @@ public class DamageIndicatorPacket {
         this.isHeadshot = isHeadshot;
         this.isCritical = isCritical;
         this.isTaCZ = isTaCZ;
+        this.isArmorPiercing = isArmorPiercing;
+        this.hitArmor = hitArmor;
+        this.isKill = isKill;
+        this.victimName = victimName != null ? victimName : "";
     }
 
     public DamageIndicatorPacket(FriendlyByteBuf buf) {
@@ -41,6 +51,10 @@ public class DamageIndicatorPacket {
         this.isHeadshot = buf.readBoolean();
         this.isCritical = buf.readBoolean();
         this.isTaCZ = buf.readBoolean();
+        this.isArmorPiercing = buf.readBoolean();
+        this.hitArmor = buf.readBoolean();
+        this.isKill = buf.readBoolean();
+        this.victimName = buf.readUtf(256);
     }
 
     public void toBytes(FriendlyByteBuf buf) {
@@ -52,6 +66,10 @@ public class DamageIndicatorPacket {
         buf.writeBoolean(this.isHeadshot);
         buf.writeBoolean(this.isCritical);
         buf.writeBoolean(this.isTaCZ);
+        buf.writeBoolean(this.isArmorPiercing);
+        buf.writeBoolean(this.hitArmor);
+        buf.writeBoolean(this.isKill);
+        buf.writeUtf(this.victimName, 256);
     }
 
     public void handle(Supplier<NetworkEvent.Context> supplier) {
@@ -59,7 +77,11 @@ public class DamageIndicatorPacket {
         context.enqueueWork(() -> {
             // クライアント側でのみ処理を実行
             DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> {
-                ClientDamageHandler.handlePacket(entityId, posX, posY, posZ, damage, isHeadshot, isCritical, isTaCZ);
+                ClientDamageHandler.handlePacket(
+                        entityId, posX, posY, posZ, damage,
+                        isHeadshot, isCritical, isTaCZ,
+                        isArmorPiercing, hitArmor, isKill, victimName
+                );
             });
         });
         context.setPacketHandled(true);
@@ -73,4 +95,8 @@ public class DamageIndicatorPacket {
     public boolean isHeadshot() { return isHeadshot; }
     public boolean isCritical() { return isCritical; }
     public boolean isTaCZ() { return isTaCZ; }
+    public boolean isArmorPiercing() { return isArmorPiercing; }
+    public boolean isHitArmor() { return hitArmor; }
+    public boolean isKill() { return isKill; }
+    public String getVictimName() { return victimName; }
 }

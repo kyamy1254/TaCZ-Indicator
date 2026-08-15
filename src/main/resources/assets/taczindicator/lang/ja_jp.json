@@ -1,0 +1,39 @@
+{
+  "key.categories.taczindicator": "TaCZ ダメージインジケータ",
+  "key.taczindicator.open_config": "設定画面を開く",
+
+  "taczindicator.gui.title": "TaCZ ダメージインジケータ 設定",
+  "taczindicator.gui.category.general": "全般設定",
+  "taczindicator.gui.category.display": "表示・コンボ",
+  "taczindicator.gui.category.hud": "HUD配置調整",
+  "taczindicator.gui.category.world3d": "3D空間表示",
+  "taczindicator.gui.category.colors": "アイコン・色",
+
+  "taczindicator.gui.enabled": "インジケータ機能: %s",
+  "taczindicator.gui.only_player_damage": "プレイヤー与ダメ限定: %s",
+  "taczindicator.gui.only_tacz_damage": "TaCZ銃撃限定: %s",
+  "taczindicator.gui.render_mode": "描画モード: %s",
+  "taczindicator.gui.consecutive_mode": "コンボ形式: %s",
+  "taczindicator.gui.show_kill_alert": "キル確定演出: %s",
+  "taczindicator.gui.show_hit_count": "ヒット数表示: %s",
+  "taczindicator.gui.hud_scale": "文字スケール: %.2f",
+  "taczindicator.gui.drag_instruction": "中央の数字をドラッグして位置を調整できます",
+  "taczindicator.gui.save_and_close": "保存して適用",
+  "taczindicator.gui.reset_defaults": "デフォルトに戻す",
+
+  "taczindicator.status.title": "[TaCZ Indicator] 動作ステータス情報:",
+  "taczindicator.status.mode": "  - 動作モード: %s",
+  "taczindicator.status.mode_server": "Server同期 (SERVER_SYNCED)",
+  "taczindicator.status.mode_server_desc": "サーバーMOD稼働中・高精度ヘッドショット/クリティカル/キルパケット受信",
+  "taczindicator.status.mode_client": "Client単体 (CLIENT_STANDALONE)",
+  "taczindicator.status.mode_client_desc": "サーバー未導入・クライアント側ローカル攻撃検知中",
+  "taczindicator.status.render_mode": "  - 描画モード: %s",
+  "taczindicator.status.combo_mode": "  - 連続ダメージ: %s",
+  "taczindicator.status.only_player": "  - プレイヤー限定: %s",
+  "taczindicator.status.only_tacz": "  - TaCZ銃撃限定: %s",
+  "taczindicator.status.enabled": "有効 (ON)",
+  "taczindicator.status.disabled": "無効 (OFF)",
+
+  "taczindicator.kill.single": "§c☠ §fKilled §e%s",
+  "taczindicator.kill.multi": "§c☠ §fKilled §e%s §6(x%d)"
+}

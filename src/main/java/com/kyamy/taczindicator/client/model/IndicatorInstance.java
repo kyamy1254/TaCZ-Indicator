@@ -6,7 +6,7 @@ import java.util.Locale;
 
 /**
  * 個別のダメージインジケータ表示インスタンス
- * 連続ダメージの加算（スタック）、上方スクロール、およびポップアニメーションを管理
+ * 連続ダメージの加算（スタック）、上方スクロール、防具貫通、およびポップアニメーションを管理
  */
 public class IndicatorInstance {
     private final int entityId;
@@ -18,6 +18,8 @@ public class IndicatorInstance {
     private boolean isHeadshot;
     private boolean isCritical;
     private boolean isTaCZ;
+    private boolean isArmorPiercing;
+    private boolean hitArmor;
     private String formattedText;
     private int color;
 
@@ -34,7 +36,9 @@ public class IndicatorInstance {
     private float popScale;
     private float prevPopScale;
 
-    public IndicatorInstance(int entityId, double x, double y, double z, float damage, boolean isHeadshot, boolean isCritical, boolean isTaCZ) {
+    public IndicatorInstance(int entityId, double x, double y, double z, float damage,
+                             boolean isHeadshot, boolean isCritical, boolean isTaCZ,
+                             boolean isArmorPiercing, boolean hitArmor) {
         this.entityId = entityId;
         this.x = x;
         this.y = y;
@@ -45,6 +49,8 @@ public class IndicatorInstance {
         this.isHeadshot = isHeadshot;
         this.isCritical = isCritical;
         this.isTaCZ = isTaCZ;
+        this.isArmorPiercing = isArmorPiercing;
+        this.hitArmor = hitArmor;
 
         this.ageTicks = 0;
         this.maxLifetime = IndicatorConfig.getLifetime();
@@ -59,6 +65,10 @@ public class IndicatorInstance {
         updateFormattedTextAndColor();
     }
 
+    public IndicatorInstance(int entityId, double x, double y, double z, float damage, boolean isHeadshot, boolean isCritical, boolean isTaCZ) {
+        this(entityId, x, y, z, damage, isHeadshot, isCritical, isTaCZ, false, false);
+    }
+
     /**
      * テキストおよびカラーの再計算
      */
@@ -69,6 +79,8 @@ public class IndicatorInstance {
 
         if (this.isHeadshot && IndicatorConfig.isShowHeadshotIcon()) {
             numText = "§c☠ §l" + numText + "§r";
+        } else if (this.isArmorPiercing && IndicatorConfig.isShowArmorPiercingIcon()) {
+            numText = "§b🗡 §l" + numText + "§r";
         } else if (this.isCritical) {
             numText = "§6★ §l" + numText + "§r";
         }
@@ -77,11 +89,17 @@ public class IndicatorInstance {
             numText += " §7(x" + this.hitCount + ")";
         }
 
+        if (this.hitArmor && IndicatorConfig.isShowArmorDamageIcon() && !this.isArmorPiercing) {
+            numText += " §7🛡️";
+        }
+
         this.formattedText = numText;
 
-        // カラーの決定 (優先度: Headshot > Critical > Normal)
+        // カラーの決定 (優先度: Headshot > ArmorPiercing > Critical > Normal)
         if (this.isHeadshot) {
             this.color = IndicatorConfig.getHeadshotColor();
+        } else if (this.isArmorPiercing) {
+            this.color = IndicatorConfig.getArmorPiercingColor();
         } else if (this.isCritical) {
             this.color = IndicatorConfig.getCriticalColor();
         } else if (this.isTaCZ) {
@@ -94,12 +112,14 @@ public class IndicatorInstance {
     /**
      * 同一ターゲットへの連続ダメージを加算
      */
-    public void accumulateDamage(float additionalDamage, boolean headshot, boolean critical, boolean tacz) {
+    public void accumulateDamage(float additionalDamage, boolean headshot, boolean critical, boolean tacz, boolean ap, boolean armor) {
         this.damage += additionalDamage;
         this.hitCount++;
         if (headshot) this.isHeadshot = true;
         if (critical) this.isCritical = true;
         if (tacz) this.isTaCZ = true;
+        if (ap) this.isArmorPiercing = true;
+        if (armor) this.hitArmor = true;
 
         // タイマーのリセットとポップアニメーションの再トリガー
         this.ageTicks = 0;
@@ -107,6 +127,10 @@ public class IndicatorInstance {
         this.prevPopScale = 1.45f;
 
         updateFormattedTextAndColor();
+    }
+
+    public void accumulateDamage(float additionalDamage, boolean headshot, boolean critical, boolean tacz) {
+        accumulateDamage(additionalDamage, headshot, critical, tacz, false, false);
     }
 
     /**
@@ -131,7 +155,7 @@ public class IndicatorInstance {
      */
     public void tick() {
         this.prevY = this.y;
-        this.y += IndicatorConfig.CLIENT.getRiseSpeed();
+        this.y += IndicatorConfig.getRiseSpeed();
 
         this.prevScrollY = this.currentScrollY;
         this.currentScrollY += (this.targetScrollY - this.currentScrollY) * 0.4;
@@ -190,6 +214,8 @@ public class IndicatorInstance {
     public boolean isHeadshot() { return isHeadshot; }
     public boolean isCritical() { return isCritical; }
     public boolean isTaCZ() { return isTaCZ; }
+    public boolean isArmorPiercing() { return isArmorPiercing; }
+    public boolean isHitArmor() { return hitArmor; }
     public String getFormattedText() { return formattedText; }
     public int getColor() { return color; }
     public int getAgeTicks() { return ageTicks; }

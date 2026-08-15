@@ -34,10 +34,15 @@ public class IndicatorConfig {
         ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, CLIENT_SPEC, "taczindicator-client.toml");
     }
 
+    public static void saveConfig() {
+        CLIENT_SPEC.save();
+    }
+
     // --- 静的ヘルパーメソッド ---
     // [general]
     public static boolean isEnabled() { return CLIENT.isEnabled(); }
     public static boolean isOnlyPlayerDamage() { return CLIENT.isOnlyPlayerDamage(); }
+    public static boolean isOnlyTaczDamage() { return CLIENT.isOnlyTaczDamage(); }
     public static boolean isShowModeOnJoin() { return CLIENT.isShowModeOnJoin(); }
 
     // [display]
@@ -45,6 +50,7 @@ public class IndicatorConfig {
     public static ConsecutiveMode getConsecutiveMode() { return CLIENT.getConsecutiveMode(); }
     public static int getComboTimeoutTicks() { return CLIENT.getComboTimeoutTicks(); }
     public static boolean isShowHitCount() { return CLIENT.isShowHitCount(); }
+    public static boolean isShowKillAlert() { return CLIENT.isShowKillAlert(); }
     public static int getDecimalPlaces() { return CLIENT.getDecimalPlaces(); }
 
     // [hud]
@@ -52,6 +58,8 @@ public class IndicatorConfig {
     public static double getCrosshairOffsetX() { return CLIENT.getCrosshairOffsetX(); }
     public static double getCrosshairOffsetY() { return CLIENT.getCrosshairOffsetY(); }
     public static double getScrollSpacing() { return CLIENT.getScrollSpacing(); }
+    public static double getKillAlertOffsetY() { return CLIENT.getKillAlertOffsetY(); }
+    public static double getKillAlertScale() { return CLIENT.getKillAlertScale(); }
 
     // [world3d]
     public static boolean isConstantSize() { return CLIENT.isConstantSize(); }
@@ -63,15 +71,19 @@ public class IndicatorConfig {
 
     // [icons_and_colors]
     public static boolean isShowHeadshotIcon() { return CLIENT.isShowHeadshotIcon(); }
+    public static boolean isShowArmorPiercingIcon() { return CLIENT.isShowArmorPiercingIcon(); }
+    public static boolean isShowArmorDamageIcon() { return CLIENT.isShowArmorDamageIcon(); }
     public static int getNormalColor() { return CLIENT.getNormalColor(); }
     public static int getCriticalColor() { return CLIENT.getCriticalColor(); }
     public static int getHeadshotColor() { return CLIENT.getHeadshotColor(); }
+    public static int getArmorPiercingColor() { return CLIENT.getArmorPiercingColor(); }
     public static int getTaczColor() { return CLIENT.getTaczColor(); }
 
     public static class Client {
         // [general] 全般設定
         public final ForgeConfigSpec.BooleanValue enabled;
         public final ForgeConfigSpec.BooleanValue onlyPlayerDamage;
+        public final ForgeConfigSpec.BooleanValue onlyTaczDamage;
         public final ForgeConfigSpec.BooleanValue showModeOnJoin;
 
         // [display] 表示動作設定
@@ -79,6 +91,7 @@ public class IndicatorConfig {
         public final ForgeConfigSpec.EnumValue<ConsecutiveMode> consecutiveMode;
         public final ForgeConfigSpec.IntValue comboTimeoutTicks;
         public final ForgeConfigSpec.BooleanValue showHitCount;
+        public final ForgeConfigSpec.BooleanValue showKillAlert;
         public final ForgeConfigSpec.IntValue decimalPlaces;
 
         // [hud] HUDレイヤー設定
@@ -86,6 +99,8 @@ public class IndicatorConfig {
         public final ForgeConfigSpec.DoubleValue crosshairOffsetX;
         public final ForgeConfigSpec.DoubleValue crosshairOffsetY;
         public final ForgeConfigSpec.DoubleValue scrollSpacing;
+        public final ForgeConfigSpec.DoubleValue killAlertOffsetY;
+        public final ForgeConfigSpec.DoubleValue killAlertScale;
 
         // [world3d] 3Dワールド空間設定
         public final ForgeConfigSpec.BooleanValue enableConstantSize;
@@ -97,9 +112,12 @@ public class IndicatorConfig {
 
         // [icons_and_colors] アイコン・カラー設定
         public final ForgeConfigSpec.BooleanValue showHeadshotIcon;
+        public final ForgeConfigSpec.BooleanValue showArmorPiercingIcon;
+        public final ForgeConfigSpec.BooleanValue showArmorDamageIcon;
         public final ForgeConfigSpec.IntValue normalDamageColor;
         public final ForgeConfigSpec.IntValue criticalDamageColor;
         public final ForgeConfigSpec.IntValue headshotDamageColor;
+        public final ForgeConfigSpec.IntValue armorPiercingColor;
         public final ForgeConfigSpec.IntValue taczDamageColor;
 
         public Client(ForgeConfigSpec.Builder builder) {
@@ -115,8 +133,12 @@ public class IndicatorConfig {
                     .define("enabled", true);
 
             onlyPlayerDamage = builder
-                    .comment("自分（プレイヤー）が与えたダメージのみを表示するかどうか (true: プレイヤーのみ, false: 他モブ同士や環境ダメージも表示)")
+                    .comment("自分（プレイヤー）が与えたダメージのみを表示するかどうか (true: プレイヤーのみ, false: 全ダメージ表示)")
                     .define("onlyPlayerDamage", true);
+
+            onlyTaczDamage = builder
+                    .comment("TaCZの銃器によるダメージのみを表示するかどうか (true: 銃撃のみ, false: 近接・魔法等も表示)")
+                    .define("onlyTaczDamage", false);
 
             showModeOnJoin = builder
                     .comment("ワールド参加時に動作モード（Server同期 / Client単体）をチャットに案内するかどうか")
@@ -133,14 +155,14 @@ public class IndicatorConfig {
 
             renderMode = builder
                     .comment("描画モード:",
-                             "  HUD_CROSSHAIR  : 照準（クロスヘア）横のHUDに表示（最も視認性が高く推奨）",
+                             "  HUD_CROSSHAIR  : 照準（クロスヘア）横のHUDに表示（推奨）",
                              "  WORLD_3D       : 3Dワールド空間（モブの頭上・画面上同一サイズ）",
                              "  HUD_PROJECTED  : 3D座標を2D画面上に投影")
                     .defineEnum("renderMode", RenderMode.HUD_CROSSHAIR);
 
             consecutiveMode = builder
                     .comment("連続ダメージ（コンボ）の表示形式:",
-                             "  ACCUMULATE : その場で数値を合算しポップアップ（例: 45.0 x3）",
+                             "  ACCUMULATE : その場で数値を合算しポップアップ（例: 45.0 (x3)）",
                              "  SCROLL_UP  : 古い数値を上へ押し上げて順番に流す",
                              "  OFF        : 毎回個別に新規表示")
                     .defineEnum("consecutiveMode", ConsecutiveMode.ACCUMULATE);
@@ -152,6 +174,10 @@ public class IndicatorConfig {
             showHitCount = builder
                     .comment("ACCUMULATEモード時にヒット数を併記するかどうか (例: 45.0 (x3))")
                     .define("showHitCount", true);
+
+            showKillAlert = builder
+                    .comment("敵撃破時にレティクル下にキル確定通知（Killed ゾンビ x2）を表示するかどうか")
+                    .define("showKillAlert", true);
 
             decimalPlaces = builder
                     .comment("ダメージ数値の小数点以下表示桁数 (0: 整数のみ, 1: 小数第1位まで)")
@@ -181,6 +207,14 @@ public class IndicatorConfig {
             scrollSpacing = builder
                     .comment("SCROLL_UPモードで古い数値を上に押し上げるピクセル間隔")
                     .defineInRange("scrollSpacing", 14.0D, 2.0D, 50.0D);
+
+            killAlertOffsetY = builder
+                    .comment("キル確定通知の画面中心（レティクル）からのYオフセット（ピクセル）")
+                    .defineInRange("killAlertOffsetY", 28.0D, -300.0D, 300.0D);
+
+            killAlertScale = builder
+                    .comment("キル確定通知の文字拡大スケール")
+                    .defineInRange("killAlertScale", 1.10D, 0.2D, 4.0D);
 
             builder.pop();
 
@@ -225,8 +259,16 @@ public class IndicatorConfig {
                             "==================================================").push("icons_and_colors");
 
             showHeadshotIcon = builder
-                    .comment("ヘッドショット時に専用アイコン(🎯)を表示するかどうか")
+                    .comment("ヘッドショット時にドクロアイコン(☠)を表示するかどうか")
                     .define("showHeadshotIcon", true);
+
+            showArmorPiercingIcon = builder
+                    .comment("防具貫通弾(AP)命中時に貫通アイコン(🗡)を表示するかどうか")
+                    .define("showArmorPiercingIcon", true);
+
+            showArmorDamageIcon = builder
+                    .comment("防具装備モブに命中した際に防具軽減アイコン(🛡️)を表示するかどうか")
+                    .define("showArmorDamageIcon", true);
 
             normalDamageColor = builder
                     .comment("通常ダメージの文字色 (RGB Hex 0xRRGGBB)")
@@ -239,6 +281,10 @@ public class IndicatorConfig {
             headshotDamageColor = builder
                     .comment("ヘッドショットダメージの文字色 (RGB Hex 0xRRGGBB)")
                     .defineInRange("headshotDamageColor", 0xFF3333, 0, 0xFFFFFF);
+
+            armorPiercingColor = builder
+                    .comment("防具貫通ダメージの文字色 (RGB Hex 0xRRGGBB)")
+                    .defineInRange("armorPiercingColor", 0x33CCFF, 0, 0xFFFFFF);
 
             taczDamageColor = builder
                     .comment("銃撃ダメージの文字色 (RGB Hex 0xRRGGBB)")
@@ -253,6 +299,9 @@ public class IndicatorConfig {
         }
         public boolean isOnlyPlayerDamage() {
             try { return onlyPlayerDamage != null && onlyPlayerDamage.get(); } catch (Exception e) { return true; }
+        }
+        public boolean isOnlyTaczDamage() {
+            try { return onlyTaczDamage != null && onlyTaczDamage.get(); } catch (Exception e) { return false; }
         }
         public boolean isShowModeOnJoin() {
             try { return showModeOnJoin != null && showModeOnJoin.get(); } catch (Exception e) { return true; }
@@ -269,6 +318,9 @@ public class IndicatorConfig {
         public boolean isShowHitCount() {
             try { return showHitCount != null && showHitCount.get(); } catch (Exception e) { return true; }
         }
+        public boolean isShowKillAlert() {
+            try { return showKillAlert != null && showKillAlert.get(); } catch (Exception e) { return true; }
+        }
         public int getDecimalPlaces() {
             try { return decimalPlaces != null ? decimalPlaces.get() : 1; } catch (Exception e) { return 1; }
         }
@@ -283,6 +335,12 @@ public class IndicatorConfig {
         }
         public double getScrollSpacing() {
             try { return scrollSpacing != null ? scrollSpacing.get() : 14.0D; } catch (Exception e) { return 14.0D; }
+        }
+        public double getKillAlertOffsetY() {
+            try { return killAlertOffsetY != null ? killAlertOffsetY.get() : 28.0D; } catch (Exception e) { return 28.0D; }
+        }
+        public double getKillAlertScale() {
+            try { return killAlertScale != null ? killAlertScale.get() : 1.10D; } catch (Exception e) { return 1.10D; }
         }
         public boolean isConstantSize() {
             try { return enableConstantSize != null && enableConstantSize.get(); } catch (Exception e) { return true; }
@@ -305,6 +363,12 @@ public class IndicatorConfig {
         public boolean isShowHeadshotIcon() {
             try { return showHeadshotIcon != null && showHeadshotIcon.get(); } catch (Exception e) { return true; }
         }
+        public boolean isShowArmorPiercingIcon() {
+            try { return showArmorPiercingIcon != null && showArmorPiercingIcon.get(); } catch (Exception e) { return true; }
+        }
+        public boolean isShowArmorDamageIcon() {
+            try { return showArmorDamageIcon != null && showArmorDamageIcon.get(); } catch (Exception e) { return true; }
+        }
         public int getNormalColor() {
             try { return normalDamageColor != null ? normalDamageColor.get() : 0xFFFFFF; } catch (Exception e) { return 0xFFFFFF; }
         }
@@ -313,6 +377,9 @@ public class IndicatorConfig {
         }
         public int getHeadshotColor() {
             try { return headshotDamageColor != null ? headshotDamageColor.get() : 0xFF3333; } catch (Exception e) { return 0xFF3333; }
+        }
+        public int getArmorPiercingColor() {
+            try { return armorPiercingColor != null ? armorPiercingColor.get() : 0x33CCFF; } catch (Exception e) { return 0x33CCFF; }
         }
         public int getTaczColor() {
             try { return taczDamageColor != null ? taczDamageColor.get() : 0xFFFFFF; } catch (Exception e) { return 0xFFFFFF; }

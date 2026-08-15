@@ -66,6 +66,10 @@ public class DamageEventHandler {
         boolean isTaCZ = isTaCZDamage(source, directEntity);
         boolean isHeadshot = isHeadshotDamage(victim, source, directEntity);
         boolean isCritical = isCriticalDamage(attackingPlayer, source, directEntity, isTaCZ);
+        boolean isArmorPiercing = isArmorPiercingDamage(source, directEntity);
+        boolean hitArmor = victim.getArmorValue() > 0;
+        boolean isKill = (victim.getHealth() - damage <= 0.001f) || victim.isDeadOrDying();
+        String victimName = victim.getDisplayName().getString();
 
         Vec3 eyePos = victim.getEyePosition();
         double posX = eyePos.x;
@@ -78,12 +82,31 @@ public class DamageEventHandler {
                 damage,
                 isHeadshot,
                 isCritical,
-                isTaCZ
+                isTaCZ,
+                isArmorPiercing,
+                hitArmor,
+                isKill,
+                victimName
         );
 
         ModMessages.sendToPlayer(packet, attackingPlayer);
-        TaCZIndicatorMod.LOGGER.debug("Sent damage packet: victim={}, dmg={}, HS={}, Crit={}, player={}",
-                victim.getId(), damage, isHeadshot, isCritical, attackingPlayer.getName().getString());
+        TaCZIndicatorMod.LOGGER.debug("Sent damage packet: victim={}, dmg={}, HS={}, Crit={}, AP={}, Kill={}, player={}",
+                victim.getId(), damage, isHeadshot, isCritical, isArmorPiercing, isKill, attackingPlayer.getName().getString());
+    }
+
+    private static boolean isArmorPiercingDamage(DamageSource source, Entity directEntity) {
+        if (source.is(net.minecraft.tags.DamageTypeTags.BYPASSES_ARMOR)) {
+            return true;
+        }
+        if (directEntity != null) {
+            if (checkBooleanField(directEntity, "armorIgnore", "isArmorPiercing", "armorPiercing", "piercing")) {
+                return true;
+            }
+            if (checkBooleanGetter(directEntity, "isArmorIgnore", "isArmorPiercing", "getArmorPiercing", "hasArmorIgnore")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

@@ -2,6 +2,7 @@ package com.kyamy.taczindicator.client;
 
 import com.kyamy.taczindicator.TaCZIndicatorMod;
 import com.kyamy.taczindicator.client.model.IndicatorInstance;
+import com.kyamy.taczindicator.client.model.KillAlertInstance;
 import com.kyamy.taczindicator.client.util.ScreenProjectionUtil;
 import com.kyamy.taczindicator.config.IndicatorConfig;
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -18,8 +19,8 @@ import net.minecraftforge.fml.common.Mod;
 import java.util.List;
 
 /**
- * 2D HUDレイヤー上でのダメージインジケータ描画レンダラー
- * 照準（クロスヘア）横のHUD表示および投影HUDモードをサポート
+ * 2D HUDレイヤー上でのダメージインジケータおよびキル通知描画レンダラー
+ * 照準横HUD表示・3D投影・キル確定演出をサポート
  */
 @Mod.EventBusSubscriber(modid = TaCZIndicatorMod.MOD_ID, value = Dist.CLIENT)
 public class DamageIndicatorHudRenderer {
@@ -28,27 +29,16 @@ public class DamageIndicatorHudRenderer {
 
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onRenderGui(RenderGuiEvent.Post event) {
-        renderIndicators(event.getGuiGraphics(), event.getPartialTick(), event.getWindow().getGuiScaledWidth(), event.getWindow().getGuiScaledHeight());
+        renderHudElements(event.getGuiGraphics(), event.getPartialTick(), event.getWindow().getGuiScaledWidth(), event.getWindow().getGuiScaledHeight());
     }
 
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onRenderOverlay(RenderGuiOverlayEvent.Post event) {
-        renderIndicators(event.getGuiGraphics(), event.getPartialTick(), event.getWindow().getGuiScaledWidth(), event.getWindow().getGuiScaledHeight());
+        renderHudElements(event.getGuiGraphics(), event.getPartialTick(), event.getWindow().getGuiScaledWidth(), event.getWindow().getGuiScaledHeight());
     }
 
-    private static void renderIndicators(GuiGraphics guiGraphics, float partialTick, int screenWidth, int screenHeight) {
+    private static void renderHudElements(GuiGraphics guiGraphics, float partialTick, int screenWidth, int screenHeight) {
         if (!IndicatorConfig.isEnabled()) {
-            return;
-        }
-
-        IndicatorConfig.RenderMode renderMode = IndicatorConfig.getRenderMode();
-        if (renderMode == IndicatorConfig.RenderMode.WORLD_3D) {
-            // WORLD_3Dモードの場合はDamageIndicatorRendererで描画
-            return;
-        }
-
-        List<IndicatorInstance> indicators = DamageIndicatorManager.getInstance().getActiveIndicators();
-        if (indicators.isEmpty()) {
             return;
         }
 
@@ -64,9 +54,29 @@ public class DamageIndicatorHudRenderer {
         }
         lastRenderedFrameTime = now;
 
-        PoseStack poseStack = guiGraphics.pose();
         Font font = mc.font;
 
+        // 1. ダメージインジケータの描画 (HUDモード時)
+        renderDamageIndicators(guiGraphics, partialTick, screenWidth, screenHeight, font);
+
+        // 2. キル確定通知の描画 (レティクル直下・アクションバーと非干渉)
+        if (IndicatorConfig.isShowKillAlert()) {
+            renderKillAlerts(guiGraphics, partialTick, screenWidth, screenHeight, font);
+        }
+    }
+
+    private static void renderDamageIndicators(GuiGraphics guiGraphics, float partialTick, int screenWidth, int screenHeight, Font font) {
+        IndicatorConfig.RenderMode renderMode = IndicatorConfig.getRenderMode();
+        if (renderMode == IndicatorConfig.RenderMode.WORLD_3D) {
+            return;
+        }
+
+        List<IndicatorInstance> indicators = DamageIndicatorManager.getInstance().getActiveIndicators();
+        if (indicators.isEmpty()) {
+            return;
+        }
+
+        PoseStack poseStack = guiGraphics.pose();
         double baseHudScale = IndicatorConfig.getHudScale();
 
         for (IndicatorInstance indicator : indicators) {
@@ -75,7 +85,6 @@ public class DamageIndicatorHudRenderer {
             int drawX;
 
             if (renderMode == IndicatorConfig.RenderMode.HUD_PROJECTED) {
-                // 3Dワールド座標から2D画面座標へ投影
                 ScreenProjectionUtil.ProjectionResult proj = ScreenProjectionUtil.projectToScreen(
                         indicator.getX(),
                         indicator.getInterpolatedY(partialTick),
@@ -90,10 +99,10 @@ public class DamageIndicatorHudRenderer {
                 posY = proj.getScreenY() - indicator.getInterpolatedScrollY(partialTick);
                 drawX = -font.width(indicator.getFormattedText()) / 2;
             } else {
-                // HUD_CROSSHAIRモード (レティクルの横にダメージ数値を表示)
+                // HUD_CROSSHAIRモード (レティクル横)
                 posX = (screenWidth / 2.0) + IndicatorConfig.getCrosshairOffsetX();
                 posY = (screenHeight / 2.0) + IndicatorConfig.getCrosshairOffsetY() - indicator.getInterpolatedScrollY(partialTick);
-                drawX = 0; // クロスヘア右側から自然に配置
+                drawX = 0;
             }
 
             // スケール計算（ポップバウンス + ヘッドショット/クリティカル強調）
@@ -118,6 +127,40 @@ public class DamageIndicatorHudRenderer {
 
             // 影付きでテキストを描画
             guiGraphics.drawString(font, text, drawX, drawY, color, true);
+
+            poseStack.popPose();
+        }
+    }
+
+    private static void renderKillAlerts(GuiGraphics guiGraphics, float partialTick, int screenWidth, int screenHeight, Font font) {
+        List<KillAlertInstance> alerts = DamageIndicatorManager.getInstance().getActiveKillAlerts();
+        if (alerts.isEmpty()) {
+            return;
+        }
+
+        PoseStack poseStack = guiGraphics.pose();
+        double baseKillScale = IndicatorConfig.getKillAlertScale();
+        double centerPosX = screenWidth / 2.0;
+        double basePosY = (screenHeight / 2.0) + IndicatorConfig.getKillAlertOffsetY();
+
+        for (int i = 0; i < alerts.size(); i++) {
+            KillAlertInstance alert = alerts.get(i);
+            String text = alert.getFormattedText();
+            int textWidth = font.width(text);
+
+            float alpha = alert.getAlpha(partialTick);
+            int alphaInt = Math.max(8, Math.min(255, (int) (alpha * 255.0f)));
+            int textColor = 0x00FFFFFF | (alphaInt << 24);
+
+            float dynamicScale = (float) (baseKillScale * alert.getInterpolatedPopScale(partialTick));
+            double posY = basePosY + (i * 12.0); // 複数キル通知時の縦並び
+
+            poseStack.pushPose();
+            poseStack.translate(centerPosX, posY, 0.0);
+            poseStack.scale(dynamicScale, dynamicScale, 1.0f);
+
+            // 画面中央揃えで影付き描画
+            guiGraphics.drawString(font, text, -textWidth / 2, -font.lineHeight / 2, textColor, true);
 
             poseStack.popPose();
         }

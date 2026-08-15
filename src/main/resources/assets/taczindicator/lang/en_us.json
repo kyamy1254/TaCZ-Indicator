@@ -1,0 +1,39 @@
+{
+  "key.categories.taczindicator": "TaCZ Damage Indicator",
+  "key.taczindicator.open_config": "Open Indicator Settings",
+
+  "taczindicator.gui.title": "TaCZ Damage Indicator Settings",
+  "taczindicator.gui.category.general": "General",
+  "taczindicator.gui.category.display": "Display & Combo",
+  "taczindicator.gui.category.hud": "HUD Layout",
+  "taczindicator.gui.category.world3d": "3D World Space",
+  "taczindicator.gui.category.colors": "Icons & Colors",
+
+  "taczindicator.gui.enabled": "Indicator: %s",
+  "taczindicator.gui.only_player_damage": "Only Player Damage: %s",
+  "taczindicator.gui.only_tacz_damage": "Only TaCZ Gun Damage: %s",
+  "taczindicator.gui.render_mode": "Render Mode: %s",
+  "taczindicator.gui.consecutive_mode": "Combo Mode: %s",
+  "taczindicator.gui.show_kill_alert": "Kill Alert: %s",
+  "taczindicator.gui.show_hit_count": "Hit Count: %s",
+  "taczindicator.gui.hud_scale": "HUD Scale: %.2f",
+  "taczindicator.gui.drag_instruction": "Click and drag the preview number to reposition",
+  "taczindicator.gui.save_and_close": "Save & Apply",
+  "taczindicator.gui.reset_defaults": "Reset Defaults",
+
+  "taczindicator.status.title": "[TaCZ Indicator] Operating Status:",
+  "taczindicator.status.mode": "  - Operating Mode: %s",
+  "taczindicator.status.mode_server": "Server Synced (SERVER_SYNCED)",
+  "taczindicator.status.mode_server_desc": "Server MOD active - Exact Headshot/Crit & Kill packets",
+  "taczindicator.status.mode_client": "Client Standalone (CLIENT_STANDALONE)",
+  "taczindicator.status.mode_client_desc": "Server MOD not detected - Local attack tracking active",
+  "taczindicator.status.render_mode": "  - Render Mode: %s",
+  "taczindicator.status.combo_mode": "  - Combo Mode: %s",
+  "taczindicator.status.only_player": "  - Only Player Damage: %s",
+  "taczindicator.status.only_tacz": "  - Only TaCZ Gun Damage: %s",
+  "taczindicator.status.enabled": "Enabled (ON)",
+  "taczindicator.status.disabled": "Disabled (OFF)",
+
+  "taczindicator.kill.single": "§c☠ §fKilled §e%s",
+  "taczindicator.kill.multi": "§c☠ §fKilled §e%s §6(x%d)"
+}
