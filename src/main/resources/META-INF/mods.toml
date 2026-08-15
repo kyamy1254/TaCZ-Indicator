@@ -1,0 +1,27 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="MIT"
+
+[[mods]]
+modId="taczindicator"
+version="1.0.0"
+displayName="TaCZ Damage Indicator"
+description='''
+A distance-independent damage indicator mod for Minecraft Forge 1.20.1 with specialized support for TaCZ (Timeless and Classics Zero).
+Displays damage numbers with constant apparent angular size regardless of distance.
+'''
+authors="Kyamy"
+
+[[dependencies.taczindicator]]
+    modId="forge"
+    mandatory=true
+    versionRange="[47.1.0,)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.taczindicator]]
+    modId="minecraft"
+    mandatory=true
+    versionRange="[1.20.1,1.21)"
+    ordering="NONE"
+    side="BOTH"
