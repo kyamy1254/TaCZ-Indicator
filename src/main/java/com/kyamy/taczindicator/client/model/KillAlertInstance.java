@@ -1,15 +1,15 @@
 package com.kyamy.taczindicator.client.model;
 
-import com.kyamy.taczindicator.config.IndicatorConfig;
 import net.minecraft.network.chat.Component;
 
 /**
  * キル確定演出（Kill Alert）の個別インスタンス
- * アクションバーと被らないレティクル下部でのポップアップ・フェードアウト・マルチキルカウントを管理
+ * 距離表示 [100m]、同種モブ連続キル時の置換更新、ポップバウンスを管理
  */
 public class KillAlertInstance {
     private final String victimName;
     private int killCount;
+    private int distanceMeters;
     private int ageTicks;
     private final int maxLifetime;
 
@@ -17,11 +17,12 @@ public class KillAlertInstance {
     private float prevPopScale;
     private String formattedText;
 
-    public KillAlertInstance(String victimName) {
+    public KillAlertInstance(String victimName, int distanceMeters) {
         this.victimName = victimName;
         this.killCount = 1;
+        this.distanceMeters = distanceMeters;
         this.ageTicks = 0;
-        this.maxLifetime = 45; // 約2.25秒
+        this.maxLifetime = 50; // 約2.5秒
 
         this.popScale = 1.40f;
         this.prevPopScale = 1.40f;
@@ -29,19 +30,38 @@ public class KillAlertInstance {
         updateFormattedText();
     }
 
-    public void addMultiKill() {
+    public KillAlertInstance(String victimName) {
+        this(victimName, 0);
+    }
+
+    /**
+     * 同種モブの連続キル発生時に新しい距離とカウントで置換更新
+     */
+    public void updateKill(int newDistanceMeters) {
         this.killCount++;
+        this.distanceMeters = newDistanceMeters;
         this.ageTicks = 0; // 表示時間をリセット
-        this.popScale = 1.50f;
-        this.prevPopScale = 1.50f;
+        this.popScale = 1.45f;
+        this.prevPopScale = 1.45f;
         updateFormattedText();
     }
 
+    public void addMultiKill() {
+        updateKill(this.distanceMeters);
+    }
+
     private void updateFormattedText() {
+        String base;
         if (this.killCount > 1) {
-            this.formattedText = Component.translatable("taczindicator.kill.multi", this.victimName, this.killCount).getString();
+            base = Component.translatable("taczindicator.kill.multi", this.victimName, this.killCount).getString();
         } else {
-            this.formattedText = Component.translatable("taczindicator.kill.single", this.victimName).getString();
+            base = Component.translatable("taczindicator.kill.single", this.victimName).getString();
+        }
+
+        if (this.distanceMeters > 0) {
+            this.formattedText = base + " §7[" + this.distanceMeters + "m]";
+        } else {
+            this.formattedText = base;
         }
     }
 
@@ -86,5 +106,9 @@ public class KillAlertInstance {
 
     public int getKillCount() {
         return this.killCount;
+    }
+
+    public int getDistanceMeters() {
+        return this.distanceMeters;
     }
 }

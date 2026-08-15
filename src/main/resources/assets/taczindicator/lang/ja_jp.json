@@ -9,6 +9,7 @@
   "taczindicator.gui.category.world3d": "3D空間表示",
   "taczindicator.gui.category.colors": "アイコン・色",
   "taczindicator.gui.category.damage_vignette": "被ダメ画面効果",
+  "taczindicator.gui.category.sounds": "サウンド設定",
 
   "taczindicator.gui.enabled": "機能有効化: %s",
   "taczindicator.gui.only_player_damage": "プレイヤー与ダメ限定: %s",
@@ -23,6 +24,9 @@
   "taczindicator.gui.show_armor_damage_icon": "\uE001 防具表示: %s",
   "taczindicator.gui.damage_vignette": "被ダメ赤色効果: %s",
   "taczindicator.gui.vignette_opacity": "赤色効果の濃さ: %.2f",
+  "taczindicator.gui.hit_sound": "ヒット効果音: %s",
+  "taczindicator.gui.kill_sound": "キル確定音: %s",
+  "taczindicator.gui.max_scrolled": "スクロール上限: %d件",
   "taczindicator.gui.constant_size": "3D等倍サイズ: %s",
   "taczindicator.gui.xray": "3D壁越し透過: %s",
   "taczindicator.gui.hud_scale": "文字スケール: %.2f",

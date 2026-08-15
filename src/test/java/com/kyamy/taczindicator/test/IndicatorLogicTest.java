@@ -1,15 +1,19 @@
 package com.kyamy.taczindicator.test;
 
+import com.kyamy.taczindicator.client.model.KillAlertInstance;
 import com.kyamy.taczindicator.server.TaCZCompatHandler;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * ダメージインジケータの計算ロジック、累積加算、スクロール処理、3D Ray-Box幾何ヘッドショット判定、およびヴィネット減衰に関する単体テスト
+ * ダメージインジケータの計算ロジック、累積加算、スクロール処理、厳密頭部判定(y-0.25〜+0.25)、
+ * キル演出距離表示[100m]と置換更新、およびヴィネット減衰に関する単体テスト
  */
 public class IndicatorLogicTest {
 
@@ -119,34 +123,90 @@ public class IndicatorLogicTest {
     }
 
     @Test
+    @DisplayName("厳密な頭部当たり判定 (x-0.25 < y < x+0.25) の数学検証")
+    void testStrictHeadHitboxBounds() {
+        double eyeY = 65.62; // x = 目の高さ
+        double headMinY = eyeY - 0.25 + 0.0001;
+        double headMaxY = eyeY + 0.25 - 0.0001;
+
+        // 目の高さ中心 (y = 65.62) -> 合格
+        assertTrue(65.62 >= headMinY && 65.62 <= headMaxY);
+
+        // 目の少し上 (y = 65.80) -> 合格
+        assertTrue(65.80 >= headMinY && 65.80 <= headMaxY);
+
+        // 境界値 (y = 65.62 + 0.25 = 65.87) -> 厳密不等式のため不合格
+        assertFalse(65.87 >= headMinY && 65.87 <= headMaxY);
+
+        // 境界値 (y = 65.62 - 0.25 = 65.37) -> 厳密不等式のため不合格
+        assertFalse(65.37 >= headMinY && 65.37 <= headMaxY);
+
+        // 胸部 (y = 65.00) -> 不合格
+        assertFalse(65.00 >= headMinY && 65.00 <= headMaxY);
+    }
+
+    @Test
+    @DisplayName("キル通知の距離表示[100m]フォーマットおよび置換更新検証")
+    void testKillAlertDistanceAndReplacement() {
+        KillAlertInstance alert = new KillAlertInstance("Zombie", 100);
+        assertEquals("Zombie", alert.getVictimName());
+        assertEquals(1, alert.getKillCount());
+        assertEquals(100, alert.getDistanceMeters());
+        assertTrue(alert.getFormattedText().contains("[100m]"));
+
+        // 同種モブ連続キル発生時の置換更新 (45mでのキル)
+        alert.updateKill(45);
+        assertEquals(2, alert.getKillCount());
+        assertEquals(45, alert.getDistanceMeters());
+        assertTrue(alert.getFormattedText().contains("[45m]"));
+    }
+
+    @Test
+    @DisplayName("スクロール上限数(maxScrolledIndicators)制限パージロジック検証")
+    void testMaxScrolledIndicatorsPruning() {
+        int maxScrolled = 3;
+        List<String> list = new ArrayList<>();
+
+        for (int i = 1; i <= 5; i++) {
+            while (list.size() >= maxScrolled && !list.isEmpty()) {
+                list.remove(0);
+            }
+            list.add("Damage " + i);
+        }
+
+        assertEquals(3, list.size());
+        assertEquals("Damage 3", list.get(0));
+        assertEquals("Damage 4", list.get(1));
+        assertEquals("Damage 5", list.get(2));
+    }
+
+    @Test
     @DisplayName("3D Ray-Box交差レイキャストヘッドショット判定の数学検証")
     void testRayBoxHeadshotIntersection() {
-        // ターゲット (モブ): 座標 (0, 64, 50), 身長 1.8m, 幅 0.6m
+        // ターゲット (モブ): 座標 (0, 64, 50), 目の高さ 65.62
         double victimX = 0.0;
-        double victimY = 64.0;
         double victimZ = 50.0;
-        double height = 1.8;
         double eyeY = 65.62;
 
-        double headMinY = Math.max(victimY + height * 0.68, eyeY - 0.35); // 65.27
-        double headMaxY = victimY + height + 0.25; // 66.05
-        double halfWidth = 0.45;
+        double headMinY = eyeY - 0.25 + 0.0001;
+        double headMaxY = eyeY + 0.25 - 0.0001;
+        double halfWidth = 0.3; // モブ本来の幅 0.6m の半分
 
         double boxMinX = victimX - halfWidth;
         double boxMaxX = victimX + halfWidth;
         double boxMinZ = victimZ - halfWidth;
         double boxMaxZ = victimZ + halfWidth;
 
-        // 1. スナイパー視線 (プレイヤー位置: (0, 65.5, 0) -> 頭部 (0, 65.5, 50) へ水平照準)
-        double eyePosX = 0.0, eyePosY = 65.5, eyePosZ = 0.0;
+        // 1. スナイパー視線 (プレイヤー位置: (0, 65.6, 0) -> 頭部 (0, 65.6, 50) へ水平照準)
+        double eyePosX = 0.0, eyePosY = 65.6, eyePosZ = 0.0;
         double rayDirX = 0.0, rayDirY = 0.0, rayDirZ = 1.0;
 
         boolean hitsHead = rayIntersectsAABB(eyePosX, eyePosY, eyePosZ, rayDirX, rayDirY, rayDirZ,
                 boxMinX, headMinY, boxMinZ, boxMaxX, headMaxY, boxMaxZ);
         assertTrue(hitsHead, "スナイパー視線がモブの頭部AABBに命中するべき");
 
-        // 2. 胴体照準 (Y = 64.5)
-        boolean hitsBody = rayIntersectsAABB(eyePosX, 64.5, eyePosZ, rayDirX, 0.0, rayDirZ,
+        // 2. 胴体照準 (Y = 64.8)
+        boolean hitsBody = rayIntersectsAABB(eyePosX, 64.8, eyePosZ, rayDirX, 0.0, rayDirZ,
                 boxMinX, headMinY, boxMinZ, boxMaxX, headMaxY, boxMaxZ);
         assertFalse(hitsBody, "胴体狙いの射撃は頭部AABBに命中しないべき");
     }

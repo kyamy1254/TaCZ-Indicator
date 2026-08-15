@@ -9,7 +9,7 @@ import net.minecraft.network.chat.Component;
 
 /**
  * ゲーム内リアルタイムGUI設定画面
- * 各機能の完全なON/OFFトグル、被ダメ画面赤色効果の調整、およびドラッグプレビュー位置調整を完備
+ * 各機能の完全なON/OFFトグル、サウンド設定、スクロール上限、被ダメ画面赤色効果の調整、およびドラッグプレビュー位置調整を完備
  */
 public class IndicatorConfigScreen extends Screen {
 
@@ -32,10 +32,15 @@ public class IndicatorConfigScreen extends Screen {
     private double tempHudScale;
     private double tempOffsetX;
     private double tempOffsetY;
+    private int tempMaxScrolledIndicators;
 
     // 被ダメージ画面赤色効果設定
     private boolean tempDamageVignetteEnabled;
     private double tempDamageVignetteOpacity;
+
+    // サウンド設定
+    private boolean tempHitSoundEnabled;
+    private boolean tempKillSoundEnabled;
 
     private boolean isDragging = false;
 
@@ -60,23 +65,27 @@ public class IndicatorConfigScreen extends Screen {
         this.tempHudScale = IndicatorConfig.getHudScale();
         this.tempOffsetX = IndicatorConfig.getCrosshairOffsetX();
         this.tempOffsetY = IndicatorConfig.getCrosshairOffsetY();
+        this.tempMaxScrolledIndicators = IndicatorConfig.getMaxScrolledIndicators();
 
         this.tempDamageVignetteEnabled = IndicatorConfig.isDamageVignetteEnabled();
         this.tempDamageVignetteOpacity = IndicatorConfig.getDamageVignetteOpacity();
+
+        this.tempHitSoundEnabled = IndicatorConfig.isHitSoundEnabled();
+        this.tempKillSoundEnabled = IndicatorConfig.isKillSoundEnabled();
     }
 
     @Override
     protected void init() {
         super.init();
 
-        int leftCol = 15;
-        int rightCol = this.width - 165;
+        int leftCol = 12;
+        int rightCol = this.width - 162;
         int btnWidth = 150;
-        int btnHeight = 18;
-        int startY = 30;
-        int gap = 20;
+        int btnHeight = 17;
+        int startY = 28;
+        int gap = 19;
 
-        // --- 左側ボタングループ (基本動作・戦闘・画面効果) ---
+        // --- 左側ボタングループ (基本動作・戦闘・画面効果・サウンド) ---
         // 1. MOD有効/無効
         this.addRenderableWidget(Button.builder(getEnabledText(), btn -> {
             this.tempEnabled = !this.tempEnabled;
@@ -129,44 +138,56 @@ public class IndicatorConfigScreen extends Screen {
             btn.setMessage(getDamageVignetteText());
         }).bounds(leftCol, startY + gap * 7, btnWidth, btnHeight).build());
 
-        // --- 右側ボタングループ (アイコン装飾・3D設定・ヴィネット調整) ---
-        // 9. ☠ ヘッドショットアイコン
+        // 9. ヒット効果音
+        this.addRenderableWidget(Button.builder(getHitSoundText(), btn -> {
+            this.tempHitSoundEnabled = !this.tempHitSoundEnabled;
+            btn.setMessage(getHitSoundText());
+        }).bounds(leftCol, startY + gap * 8, btnWidth, btnHeight).build());
+
+        // 10. キル確定音
+        this.addRenderableWidget(Button.builder(getKillSoundText(), btn -> {
+            this.tempKillSoundEnabled = !this.tempKillSoundEnabled;
+            btn.setMessage(getKillSoundText());
+        }).bounds(leftCol, startY + gap * 9, btnWidth, btnHeight).build());
+
+        // --- 右側ボタングループ (アイコン装飾・3D設定・ヴィネット調整・上限数) ---
+        // 1. ☠ ヘッドショットアイコン
         this.addRenderableWidget(Button.builder(getHeadshotIconText(), btn -> {
             this.tempShowHeadshotIcon = !this.tempShowHeadshotIcon;
             btn.setMessage(getHeadshotIconText());
         }).bounds(rightCol, startY, btnWidth, btnHeight).build());
 
-        // 10. ★ クリティカルアイコン
+        // 2. ★ クリティカルアイコン
         this.addRenderableWidget(Button.builder(getCriticalIconText(), btn -> {
             this.tempShowCriticalIcon = !this.tempShowCriticalIcon;
             btn.setMessage(getCriticalIconText());
         }).bounds(rightCol, startY + gap, btnWidth, btnHeight).build());
 
-        // 11. 🗡 防具貫通(AP)アイコン
+        // 3. 🗡 防具貫通(AP)アイコン
         this.addRenderableWidget(Button.builder(getArmorPiercingIconText(), btn -> {
             this.tempShowArmorPiercingIcon = !this.tempShowArmorPiercingIcon;
             btn.setMessage(getArmorPiercingIconText());
         }).bounds(rightCol, startY + gap * 2, btnWidth, btnHeight).build());
 
-        // 12. 🛡️ 防具軽減アイコン
+        // 4. 🛡️ 防具軽減アイコン
         this.addRenderableWidget(Button.builder(getArmorDamageIconText(), btn -> {
             this.tempShowArmorDamageIcon = !this.tempShowArmorDamageIcon;
             btn.setMessage(getArmorDamageIconText());
         }).bounds(rightCol, startY + gap * 3, btnWidth, btnHeight).build());
 
-        // 13. 3D画面上同一サイズ
+        // 5. 3D画面上同一サイズ
         this.addRenderableWidget(Button.builder(getConstantSizeText(), btn -> {
             this.tempEnableConstantSize = !this.tempEnableConstantSize;
             btn.setMessage(getConstantSizeText());
         }).bounds(rightCol, startY + gap * 4, btnWidth, btnHeight).build());
 
-        // 14. 3D壁越し透過X-Ray
+        // 6. 3D壁越し透過X-Ray
         this.addRenderableWidget(Button.builder(getXRayText(), btn -> {
             this.tempEnableXRay = !this.tempEnableXRay;
             btn.setMessage(getXRayText());
         }).bounds(rightCol, startY + gap * 5, btnWidth, btnHeight).build());
 
-        // 15. 文字スケール縮小 / 拡大 [-] [+]
+        // 7. 文字スケール縮小 / 拡大 [-] [+]
         this.addRenderableWidget(Button.builder(Component.literal("Scale -"), btn -> {
             this.tempHudScale = Math.max(0.4, Math.round((this.tempHudScale - 0.1) * 10.0) / 10.0);
         }).bounds(rightCol, startY + gap * 6, 72, btnHeight).build());
@@ -175,7 +196,7 @@ public class IndicatorConfigScreen extends Screen {
             this.tempHudScale = Math.min(3.0, Math.round((this.tempHudScale + 0.1) * 10.0) / 10.0);
         }).bounds(rightCol + 78, startY + gap * 6, 72, btnHeight).build());
 
-        // 16. 被ダメ画面効果 濃さ (不透明度) [-] [+]
+        // 8. 被ダメ画面効果 濃さ (不透明度) [-] [+]
         this.addRenderableWidget(Button.builder(Component.literal("Red -"), btn -> {
             this.tempDamageVignetteOpacity = Math.max(0.0, Math.round((this.tempDamageVignetteOpacity - 0.05) * 100.0) / 100.0);
         }).bounds(rightCol, startY + gap * 7, 72, btnHeight).build());
@@ -184,7 +205,16 @@ public class IndicatorConfigScreen extends Screen {
             this.tempDamageVignetteOpacity = Math.min(1.0, Math.round((this.tempDamageVignetteOpacity + 0.05) * 100.0) / 100.0);
         }).bounds(rightCol + 78, startY + gap * 7, 72, btnHeight).build());
 
-        // 17. 位置 & 設定リセット
+        // 9. スクロール上限数 [-] [+]
+        this.addRenderableWidget(Button.builder(Component.literal("Scroll -"), btn -> {
+            this.tempMaxScrolledIndicators = Math.max(1, this.tempMaxScrolledIndicators - 1);
+        }).bounds(rightCol, startY + gap * 8, 72, btnHeight).build());
+
+        this.addRenderableWidget(Button.builder(Component.literal("Scroll +"), btn -> {
+            this.tempMaxScrolledIndicators = Math.min(20, this.tempMaxScrolledIndicators + 1);
+        }).bounds(rightCol + 78, startY + gap * 8, 72, btnHeight).build());
+
+        // 10. 位置 & 設定リセット
         this.addRenderableWidget(Button.builder(
                 Component.translatable("taczindicator.gui.reset_defaults"),
                 btn -> {
@@ -193,8 +223,11 @@ public class IndicatorConfigScreen extends Screen {
                     this.tempHudScale = 1.15;
                     this.tempDamageVignetteEnabled = true;
                     this.tempDamageVignetteOpacity = 0.45;
+                    this.tempMaxScrolledIndicators = 6;
+                    this.tempHitSoundEnabled = true;
+                    this.tempKillSoundEnabled = true;
                 }
-        ).bounds(rightCol, startY + gap * 8, btnWidth, btnHeight).build());
+        ).bounds(rightCol, startY + gap * 9, btnWidth, btnHeight).build());
 
         // --- 下部アクションボタン ---
         int bottomY = this.height - 24;
@@ -235,6 +268,12 @@ public class IndicatorConfigScreen extends Screen {
     private Component getDamageVignetteText() {
         return Component.translatable("taczindicator.gui.damage_vignette", this.tempDamageVignetteEnabled ? "§aON" : "§cOFF");
     }
+    private Component getHitSoundText() {
+        return Component.translatable("taczindicator.gui.hit_sound", this.tempHitSoundEnabled ? "§aON" : "§cOFF");
+    }
+    private Component getKillSoundText() {
+        return Component.translatable("taczindicator.gui.kill_sound", this.tempKillSoundEnabled ? "§aON" : "§cOFF");
+    }
     private Component getHeadshotIconText() {
         return Component.translatable("taczindicator.gui.show_headshot_icon", this.tempShowHeadshotIcon ? "§aON" : "§cOFF");
     }
@@ -269,8 +308,8 @@ public class IndicatorConfigScreen extends Screen {
         int centerY = this.height / 2;
 
         // タイトル & 操作案内
-        guiGraphics.drawCenteredString(this.font, this.title, centerX, 6, 0xFFFFFF);
-        guiGraphics.drawCenteredString(this.font, Component.translatable("taczindicator.gui.drag_instruction"), centerX, 18, 0xAAAAAA);
+        guiGraphics.drawCenteredString(this.font, this.title, centerX, 5, 0xFFFFFF);
+        guiGraphics.drawCenteredString(this.font, Component.translatable("taczindicator.gui.drag_instruction"), centerX, 16, 0xAAAAAA);
 
         // 中央クロスヘア
         guiGraphics.drawString(this.font, "+", centerX - this.font.width("+") / 2, centerY - this.font.lineHeight / 2, 0xFFFFFF, false);
@@ -309,19 +348,19 @@ public class IndicatorConfigScreen extends Screen {
 
         guiGraphics.pose().popPose();
 
-        // キル通知サンプル
+        // キル通知サンプル (距離表示 [100m] 付き)
         if (this.tempShowKillAlert) {
-            String killSample = Component.translatable("taczindicator.kill.single", "Zombie").getString();
+            String killSample = Component.translatable("taczindicator.kill.single", "Zombie").getString() + " §7[100m]";
             int killW = this.font.width(killSample);
             guiGraphics.pose().pushPose();
-            guiGraphics.pose().translate(centerX, centerY + 32, 0.0);
+            guiGraphics.pose().translate(centerX, centerY + 30, 0.0);
             guiGraphics.drawString(this.font, killSample, -killW / 2, -this.font.lineHeight / 2, 0xFFFFFFFF, true);
             guiGraphics.pose().popPose();
         }
 
-        // スケール & 座標 & ヴィネット濃さ表示
-        String infoStr = String.format(java.util.Locale.ROOT, "Scale: %.1fx | Pos: (%.0f, %.0f) | Red: %.2f (%s)",
-                this.tempHudScale, this.tempOffsetX, this.tempOffsetY, this.tempDamageVignetteOpacity, this.tempDamageVignetteEnabled ? "ON" : "OFF");
+        // スケール & 座標 & ヴィネット濃さ & スクロール上限表示
+        String infoStr = String.format(java.util.Locale.ROOT, "Scale: %.1fx | Pos: (%.0f, %.0f) | Red: %.2f | Scrolled Max: %d",
+                this.tempHudScale, this.tempOffsetX, this.tempOffsetY, this.tempDamageVignetteOpacity, this.tempMaxScrolledIndicators);
         guiGraphics.drawCenteredString(this.font, infoStr, centerX, this.height - 38, 0xDDDDDD);
     }
 
@@ -375,9 +414,13 @@ public class IndicatorConfigScreen extends Screen {
         IndicatorConfig.CLIENT.hudScale.set(this.tempHudScale);
         IndicatorConfig.CLIENT.crosshairOffsetX.set(this.tempOffsetX);
         IndicatorConfig.CLIENT.crosshairOffsetY.set(this.tempOffsetY);
+        IndicatorConfig.CLIENT.maxScrolledIndicators.set(this.tempMaxScrolledIndicators);
 
         IndicatorConfig.CLIENT.enableDamageVignette.set(this.tempDamageVignetteEnabled);
         IndicatorConfig.CLIENT.damageVignetteOpacity.set(this.tempDamageVignetteOpacity);
+
+        IndicatorConfig.CLIENT.enableHitSound.set(this.tempHitSoundEnabled);
+        IndicatorConfig.CLIENT.enableKillSound.set(this.tempKillSoundEnabled);
 
         IndicatorConfig.saveConfig();
 

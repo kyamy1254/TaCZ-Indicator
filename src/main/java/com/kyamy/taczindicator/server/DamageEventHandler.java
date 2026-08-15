@@ -8,10 +8,10 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageType;
+import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.TraceableEntity;
-import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
 import net.minecraft.world.entity.boss.enderdragon.EnderDragon;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.phys.AABB;
@@ -22,14 +22,13 @@ import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 
-import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Locale;
 import java.util.Optional;
 
 /**
  * サーバー側でダメージイベントおよびキルイベントを高精度に検知し、攻撃元プレイヤーへパケット送信するハンドラ
- * TaCZイベント連携、3D Ray-Box幾何学レイキャスト、多層リフレクション判定を完備
+ * 環境ダメージ誤判定の完全防止、通常殴りヘッドショット除外、厳密頭部判定(y-0.25〜+0.25)、距離計測を完備
  */
 public class DamageEventHandler {
 
@@ -65,13 +64,14 @@ public class DamageEventHandler {
         Entity attacker = event.getSource().getEntity();
         Entity directEntity = event.getSource().getDirectEntity();
 
-        ServerPlayer attackingPlayer = resolvePlayerAttacker(victim, attacker, directEntity);
+        ServerPlayer attackingPlayer = resolvePlayerAttacker(victim, event.getSource(), attacker, directEntity);
         if (attackingPlayer == null) {
             return;
         }
 
         Vec3 eyePos = victim.getEyePosition();
         String victimName = victim.getDisplayName().getString();
+        int distanceMeters = (int) Math.round(attackingPlayer.position().distanceTo(victim.position()));
 
         DamageIndicatorPacket packet = new DamageIndicatorPacket(
                 victim.getId(),
@@ -83,11 +83,12 @@ public class DamageEventHandler {
                 false,
                 false,
                 true,
-                victimName
+                victimName,
+                distanceMeters
         );
 
         ModMessages.sendToPlayer(packet, attackingPlayer);
-        TaCZIndicatorMod.LOGGER.debug("Sent kill packet: victim={}, player={}", victimName, attackingPlayer.getName().getString());
+        TaCZIndicatorMod.LOGGER.debug("Sent kill packet: victim={}, player={}, dist={}m", victimName, attackingPlayer.getName().getString(), distanceMeters);
     }
 
     private static void handleDamage(LivingEntity victim, DamageSource source, float damage) {
@@ -98,7 +99,7 @@ public class DamageEventHandler {
         Entity attacker = source.getEntity();
         Entity directEntity = source.getDirectEntity();
 
-        ServerPlayer attackingPlayer = resolvePlayerAttacker(victim, attacker, directEntity);
+        ServerPlayer attackingPlayer = resolvePlayerAttacker(victim, source, attacker, directEntity);
         if (attackingPlayer == null) {
             return;
         }
@@ -108,11 +109,16 @@ public class DamageEventHandler {
 
         // 2. TaCZダメージ判定およびヘッドショット・クリティカル判定
         boolean isTaCZ = (taczHit != null) || isTaCZDamage(source, directEntity);
-        boolean isHeadshot = (taczHit != null && isHeadshotFromRecord(taczHit)) || isHeadshotDamage(victim, source, directEntity, attackingPlayer);
+
+        // 通常殴り（非銃器・近接直接攻撃）はヘッドショット判定から除外
+        boolean isProjectileOrGun = isTaCZ || (directEntity instanceof Projectile) || (directEntity != null && directEntity != attackingPlayer);
+        boolean isHeadshot = isProjectileOrGun && ((taczHit != null && isHeadshotFromRecord(taczHit)) || isHeadshotDamage(victim, source, directEntity, attackingPlayer));
+
         boolean isCritical = isCriticalDamage(attackingPlayer, source, directEntity, isTaCZ);
         boolean isArmorPiercing = (taczHit != null && taczHit.isArmorPiercing()) || isArmorPiercingDamage(source, directEntity);
         boolean hitArmor = victim.getArmorValue() > 0;
         String victimName = victim.getDisplayName().getString();
+        int distanceMeters = (int) Math.round(attackingPlayer.position().distanceTo(victim.position()));
 
         Vec3 eyePos = victim.getEyePosition();
         double posX = eyePos.x;
@@ -129,12 +135,13 @@ public class DamageEventHandler {
                 isArmorPiercing,
                 hitArmor,
                 false,
-                victimName
+                victimName,
+                distanceMeters
         );
 
         ModMessages.sendToPlayer(packet, attackingPlayer);
-        TaCZIndicatorMod.LOGGER.debug("Sent damage packet: victim={}, dmg={}, HS={}, Crit={}, AP={}, TaCZ={}, player={}",
-                victim.getId(), damage, isHeadshot, isCritical, isArmorPiercing, isTaCZ, attackingPlayer.getName().getString());
+        TaCZIndicatorMod.LOGGER.debug("Sent damage packet: victim={}, dmg={}, HS={}, Crit={}, AP={}, TaCZ={}, dist={}m, player={}",
+                victim.getId(), damage, isHeadshot, isCritical, isArmorPiercing, isTaCZ, distanceMeters, attackingPlayer.getName().getString());
     }
 
     private static boolean isHeadshotFromRecord(TaCZCompatHandler.TaCZHitRecord record) {
@@ -188,7 +195,6 @@ public class DamageEventHandler {
 
     /**
      * 多層高精度ヘッドショット判定
-     * (1. DamageType/MsgId判定 -> 2. 弾丸/DamageSource詳細リフレクション -> 3. 3D Ray-AABB幾何学レイキャスト判定)
      */
     public static boolean isHeadshotDamage(LivingEntity victim, DamageSource source, Entity directEntity, ServerPlayer attackingPlayer) {
         if (victim == null) return false;
@@ -221,7 +227,7 @@ public class DamageEventHandler {
             return true;
         }
 
-        // 4. 幾何学的3D Ray-Box交差レイキャスト判定 (確実なフォールバック)
+        // 4. 幾何学的3D Ray-Box交差レイキャスト判定 (厳密頭部当たり判定)
         if (checkGeometricHeadshot(victim, source, directEntity, attackingPlayer)) {
             return true;
         }
@@ -235,7 +241,7 @@ public class DamageEventHandler {
     public static boolean checkGeometricHeadshot(LivingEntity victim, DamageSource source, Entity directEntity, ServerPlayer attackingPlayer) {
         if (victim == null) return false;
 
-        // 対象エンティティの頭部バウンディングボックス (AABB) の精密構築
+        // 対象エンティティの頭部バウンディングボックス (AABB) の厳密構築 (x-0.25 < y < x+0.25)
         AABB headBox = calculateEntityHeadBox(victim);
 
         // 1. 攻撃元プレイヤーの3D視線レイキャスト判定
@@ -256,7 +262,7 @@ public class DamageEventHandler {
             Vec3 bulletPos = directEntity.position();
             Vec3 bulletVel = directEntity.getDeltaMovement();
             double speed = bulletVel.length();
-            double lookback = Math.max(1.5, speed * 2.5);
+            double lookback = Math.max(1.0, speed * 2.0);
 
             Vec3 rayStart = bulletPos.subtract(bulletVel.normalize().scale(lookback));
             Vec3 rayEnd = bulletPos.add(bulletVel.normalize().scale(lookback));
@@ -268,7 +274,7 @@ public class DamageEventHandler {
             }
 
             // 弾丸の現在位置自体が頭部領域内にある場合
-            if (headBox.inflate(0.15).contains(bulletPos)) {
+            if (headBox.contains(bulletPos)) {
                 return true;
             }
         }
@@ -276,7 +282,7 @@ public class DamageEventHandler {
         // 3. エンダードラゴン等マルチパートエンティティ対応
         if (victim instanceof EnderDragon dragon) {
             if (dragon.head != null) {
-                AABB dragonHeadBox = dragon.head.getBoundingBox().inflate(0.2);
+                AABB dragonHeadBox = dragon.head.getBoundingBox();
                 if (attackingPlayer != null) {
                     Vec3 eyePos = attackingPlayer.getEyePosition(1.0f);
                     Vec3 lookVec = attackingPlayer.getViewVector(1.0f).normalize();
@@ -290,7 +296,7 @@ public class DamageEventHandler {
         // 4. 着弾座標が直接渡されている場合の検証
         if (source != null && source.getSourcePosition() != null) {
             Vec3 srcPos = source.getSourcePosition();
-            if (headBox.inflate(0.25).contains(srcPos)) {
+            if (headBox.contains(srcPos)) {
                 return true;
             }
         }
@@ -300,27 +306,25 @@ public class DamageEventHandler {
 
     /**
      * エンティティの頭部当たり判定AABBを算出
+     * 仕様: 高さ x-0.25 < y < x+0.25 (x = 目の高さ, イコールなしの厳密不等式), 平面はモブの水平AABBと同一
      */
     public static AABB calculateEntityHeadBox(LivingEntity victim) {
-        double victimY = victim.getY();
-        double victimHeight = victim.getBbHeight();
         double eyeY = victim.getEyeY();
 
-        // 頭部の下限Y座標 (全高の上位30%または目線位置-0.3m)
-        double headMinY = Math.max(victimY + victimHeight * 0.68, eyeY - 0.35);
-        // 頭部の上限Y座標
-        double headMaxY = victimY + victimHeight + 0.25;
+        // 厳密な不等式 (x-0.25 < y < x+0.25)
+        double headMinY = eyeY - 0.25 + 0.0001;
+        double headMaxY = eyeY + 0.25 - 0.0001;
 
-        // 水平当たり判定幅 (若干の射撃許容マージン +0.15m)
-        double halfWidth = Math.max(0.35, (victim.getBbWidth() / 2.0) + 0.15);
+        // 水平面 (X, Z) はモブ本来の当たり判定と完全に同一
+        AABB mobBox = victim.getBoundingBox();
 
         return new AABB(
-                victim.getX() - halfWidth,
+                mobBox.minX,
                 headMinY,
-                victim.getZ() - halfWidth,
-                victim.getX() + halfWidth,
+                mobBox.minZ,
+                mobBox.maxX,
                 headMaxY,
-                victim.getZ() + halfWidth
+                mobBox.maxZ
         );
     }
 
@@ -343,9 +347,23 @@ public class DamageEventHandler {
     }
 
     /**
-     * DamageSource / 直接エンティティから攻撃者 ServerPlayer を高精度に解決
+     * DamageSource / 直接エンティティから攻撃者 ServerPlayer を厳密に解決
+     * 環境ダメージ（炎・落下・窒息等）の誤加算を防ぐため、プレイヤー本人の直接/射撃原因のみに限定
      */
-    private static ServerPlayer resolvePlayerAttacker(LivingEntity victim, Entity attacker, Entity directEntity) {
+    private static ServerPlayer resolvePlayerAttacker(LivingEntity victim, DamageSource source, Entity attacker, Entity directEntity) {
+        // 環境ダメージソース（炎、溶岩、落下、窒息、サボテン等）の除外
+        if (source.is(DamageTypes.IN_FIRE) || source.is(DamageTypes.ON_FIRE) || source.is(DamageTypes.LAVA)
+                || source.is(DamageTypes.FALL) || source.is(DamageTypes.DROWN) || source.is(DamageTypes.STARVE)
+                || source.is(DamageTypes.CACTUS) || source.is(DamageTypes.IN_WALL) || source.is(DamageTypes.CRAMMING)
+                || source.is(DamageTypes.DRY_OUT) || source.is(DamageTypes.FREEZE) || source.is(DamageTypes.HOT_FLOOR)
+                || source.is(DamageTypes.FELL_OUT_OF_WORLD) || source.is(DamageTypes.GENERIC_KILL)
+                || source.is(DamageTypes.GENERIC) || source.is(DamageTypes.WITHER) || source.is(DamageTypes.MAGIC)) {
+            // アタッカーや弾丸が明示的に存在しない環境ダメージはプレイヤー起因とみなさない
+            if (attacker == null && directEntity == null) {
+                return null;
+            }
+        }
+
         if (attacker instanceof ServerPlayer serverPlayer) {
             return serverPlayer;
         }
@@ -388,9 +406,7 @@ public class DamageEventHandler {
             }
         }
 
-        if (victim.getLastHurtByMob() instanceof ServerPlayer serverPlayer) {
-            return serverPlayer;
-        }
+        // ※ victim.getLastHurtByMob() は環境ダメージ（炎・毒等）の誤加算を引き起こすため完全除外
 
         return null;
     }

@@ -10,6 +10,7 @@ import java.util.function.Supplier;
 
 /**
  * サーバーからクライアントへダメージ発生・キル情報を通知するネットワークパケット
+ * 距離情報 (distanceMeters) を含む
  */
 public class DamageIndicatorPacket {
     private final int entityId;
@@ -24,10 +25,12 @@ public class DamageIndicatorPacket {
     private final boolean hitArmor;
     private final boolean isKill;
     private final String victimName;
+    private final int distanceMeters;
 
     public DamageIndicatorPacket(int entityId, double posX, double posY, double posZ, float damage,
                                  boolean isHeadshot, boolean isCritical, boolean isTaCZ,
-                                 boolean isArmorPiercing, boolean hitArmor, boolean isKill, String victimName) {
+                                 boolean isArmorPiercing, boolean hitArmor, boolean isKill, String victimName,
+                                 int distanceMeters) {
         this.entityId = entityId;
         this.posX = posX;
         this.posY = posY;
@@ -40,6 +43,13 @@ public class DamageIndicatorPacket {
         this.hitArmor = hitArmor;
         this.isKill = isKill;
         this.victimName = victimName != null ? victimName : "";
+        this.distanceMeters = distanceMeters;
+    }
+
+    public DamageIndicatorPacket(int entityId, double posX, double posY, double posZ, float damage,
+                                 boolean isHeadshot, boolean isCritical, boolean isTaCZ,
+                                 boolean isArmorPiercing, boolean hitArmor, boolean isKill, String victimName) {
+        this(entityId, posX, posY, posZ, damage, isHeadshot, isCritical, isTaCZ, isArmorPiercing, hitArmor, isKill, victimName, 0);
     }
 
     public DamageIndicatorPacket(FriendlyByteBuf buf) {
@@ -55,6 +65,7 @@ public class DamageIndicatorPacket {
         this.hitArmor = buf.readBoolean();
         this.isKill = buf.readBoolean();
         this.victimName = buf.readUtf(256);
+        this.distanceMeters = buf.readVarInt();
     }
 
     public void toBytes(FriendlyByteBuf buf) {
@@ -70,6 +81,7 @@ public class DamageIndicatorPacket {
         buf.writeBoolean(this.hitArmor);
         buf.writeBoolean(this.isKill);
         buf.writeUtf(this.victimName, 256);
+        buf.writeVarInt(this.distanceMeters);
     }
 
     public void handle(Supplier<NetworkEvent.Context> supplier) {
@@ -80,7 +92,8 @@ public class DamageIndicatorPacket {
                 ClientDamageHandler.handlePacket(
                         entityId, posX, posY, posZ, damage,
                         isHeadshot, isCritical, isTaCZ,
-                        isArmorPiercing, hitArmor, isKill, victimName
+                        isArmorPiercing, hitArmor, isKill, victimName,
+                        distanceMeters
                 );
             });
         });
@@ -99,4 +112,5 @@ public class DamageIndicatorPacket {
     public boolean isHitArmor() { return hitArmor; }
     public boolean isKill() { return isKill; }
     public String getVictimName() { return victimName; }
+    public int getDistanceMeters() { return distanceMeters; }
 }

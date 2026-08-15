@@ -6,7 +6,7 @@ import net.minecraftforge.fml.config.ModConfig;
 
 /**
  * ダメージインジケータの設定管理クラス
- * わかりやすく整理されたカテゴリ構造（全般・表示・HUD・3D空間・アイコン/カラー・被ダメ画面エフェクト）
+ * わかりやすく整理されたカテゴリ構造（全般・表示・HUD・3D空間・アイコン/カラー・被ダメ画面エフェクト・サウンド）
  */
 public class IndicatorConfig {
     public static final ForgeConfigSpec CLIENT_SPEC;
@@ -52,6 +52,7 @@ public class IndicatorConfig {
     public static boolean isShowHitCount() { return CLIENT.isShowHitCount(); }
     public static boolean isShowKillAlert() { return CLIENT.isShowKillAlert(); }
     public static int getDecimalPlaces() { return CLIENT.getDecimalPlaces(); }
+    public static int getMaxScrolledIndicators() { return CLIENT.getMaxScrolledIndicators(); }
 
     // [hud]
     public static double getHudScale() { return CLIENT.getHudScale(); }
@@ -87,6 +88,13 @@ public class IndicatorConfig {
     public static int getDamageVignetteColor() { return CLIENT.getDamageVignetteColor(); }
     public static boolean isDamageVignetteScaleWithDamage() { return CLIENT.isDamageVignetteScaleWithDamage(); }
 
+    // [sounds]
+    public static boolean isHitSoundEnabled() { return CLIENT.isHitSoundEnabled(); }
+    public static double getHitSoundVolume() { return CLIENT.getHitSoundVolume(); }
+    public static boolean isHeadshotSoundEnabled() { return CLIENT.isHeadshotSoundEnabled(); }
+    public static boolean isKillSoundEnabled() { return CLIENT.isKillSoundEnabled(); }
+    public static double getKillSoundVolume() { return CLIENT.getKillSoundVolume(); }
+
     public static class Client {
         // [general] 全般設定
         public final ForgeConfigSpec.BooleanValue enabled;
@@ -101,6 +109,7 @@ public class IndicatorConfig {
         public final ForgeConfigSpec.BooleanValue showHitCount;
         public final ForgeConfigSpec.BooleanValue showKillAlert;
         public final ForgeConfigSpec.IntValue decimalPlaces;
+        public final ForgeConfigSpec.IntValue maxScrolledIndicators;
 
         // [hud] HUDレイヤー設定
         public final ForgeConfigSpec.DoubleValue hudScale;
@@ -135,6 +144,13 @@ public class IndicatorConfig {
         public final ForgeConfigSpec.IntValue damageVignetteDurationTicks;
         public final ForgeConfigSpec.IntValue damageVignetteColor;
         public final ForgeConfigSpec.BooleanValue damageVignetteScaleWithDamage;
+
+        // [sounds] サウンド設定
+        public final ForgeConfigSpec.BooleanValue enableHitSound;
+        public final ForgeConfigSpec.DoubleValue hitSoundVolume;
+        public final ForgeConfigSpec.BooleanValue enableHeadshotSound;
+        public final ForgeConfigSpec.BooleanValue enableKillSound;
+        public final ForgeConfigSpec.DoubleValue killSoundVolume;
 
         public Client(ForgeConfigSpec.Builder builder) {
             // -------------------------------------------------------------
@@ -192,12 +208,16 @@ public class IndicatorConfig {
                     .define("showHitCount", true);
 
             showKillAlert = builder
-                    .comment("敵撃破時にレティクル下にキル確定通知（Killed ゾンビ x2）を表示するかどうか")
+                    .comment("敵撃破時にレティクル下にキル確定通知（Killed ゾンビ (x2) [100m]）を表示するかどうか")
                     .define("showKillAlert", true);
 
             decimalPlaces = builder
                     .comment("ダメージ数値の小数点以下表示桁数 (0: 整数のみ, 1: 小数第1位まで)")
                     .defineInRange("decimalPlaces", 1, 0, 3);
+
+            maxScrolledIndicators = builder
+                    .comment("SCROLL_UPモード時に画面上に保持・表示する最大インジケータ数（上限を超えた古い数値は自動消去）")
+                    .defineInRange("maxScrolledIndicators", 6, 1, 20);
 
             builder.pop();
 
@@ -340,6 +360,35 @@ public class IndicatorConfig {
                     .define("damageVignetteScaleWithDamage", true);
 
             builder.pop();
+
+            // -------------------------------------------------------------
+            // 7. [sounds] サウンド設定
+            // -------------------------------------------------------------
+            builder.comment("==================================================",
+                            " 7. サウンド設定 (Sound Effects Settings)",
+                            "==================================================").push("sounds");
+
+            enableHitSound = builder
+                    .comment("攻撃命中時のヒット音を再生するかどうか")
+                    .define("enableHitSound", true);
+
+            hitSoundVolume = builder
+                    .comment("ヒット音の音量 (0.0: 無音, 1.0: 最大音量)")
+                    .defineInRange("hitSoundVolume", 0.8D, 0.0D, 1.0D);
+
+            enableHeadshotSound = builder
+                    .comment("ヘッドショット命中時の高音キーン音を再生するかどうか")
+                    .define("enableHeadshotSound", true);
+
+            enableKillSound = builder
+                    .comment("敵撃破時のキル確定音を再生するかどうか")
+                    .define("enableKillSound", true);
+
+            killSoundVolume = builder
+                    .comment("キル確定音の音量 (0.0: 無音, 1.0: 最大音量)")
+                    .defineInRange("killSoundVolume", 0.9D, 0.0D, 1.0D);
+
+            builder.pop();
         }
 
         // 安全なゲッター
@@ -372,6 +421,9 @@ public class IndicatorConfig {
         }
         public int getDecimalPlaces() {
             try { return decimalPlaces != null ? decimalPlaces.get() : 1; } catch (Exception e) { return 1; }
+        }
+        public int getMaxScrolledIndicators() {
+            try { return maxScrolledIndicators != null ? maxScrolledIndicators.get() : 6; } catch (Exception e) { return 6; }
         }
         public double getHudScale() {
             try { return hudScale != null ? hudScale.get() : 1.15D; } catch (Exception e) { return 1.15D; }
@@ -450,6 +502,21 @@ public class IndicatorConfig {
         }
         public boolean isDamageVignetteScaleWithDamage() {
             try { return damageVignetteScaleWithDamage != null && damageVignetteScaleWithDamage.get(); } catch (Exception e) { return true; }
+        }
+        public boolean isHitSoundEnabled() {
+            try { return enableHitSound != null && enableHitSound.get(); } catch (Exception e) { return true; }
+        }
+        public double getHitSoundVolume() {
+            try { return hitSoundVolume != null ? hitSoundVolume.get() : 0.8D; } catch (Exception e) { return 0.8D; }
+        }
+        public boolean isHeadshotSoundEnabled() {
+            try { return enableHeadshotSound != null && enableHeadshotSound.get(); } catch (Exception e) { return true; }
+        }
+        public boolean isKillSoundEnabled() {
+            try { return enableKillSound != null && enableKillSound.get(); } catch (Exception e) { return true; }
+        }
+        public double getKillSoundVolume() {
+            try { return killSoundVolume != null ? killSoundVolume.get() : 0.9D; } catch (Exception e) { return 0.9D; }
         }
     }
 }

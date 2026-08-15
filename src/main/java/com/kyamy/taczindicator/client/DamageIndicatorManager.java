@@ -11,6 +11,7 @@ import java.util.Random;
 
 /**
  * クライアント側で表示中のダメージインジケータおよびキル通知群を管理するクラス
+ * スクロール上限数管理、同種モブ連続キル時の置換更新を完備
  */
 public class DamageIndicatorManager {
     private static final DamageIndicatorManager INSTANCE = new DamageIndicatorManager();
@@ -26,8 +27,8 @@ public class DamageIndicatorManager {
      * 新しいダメージインジケータを追加または連続ダメージ処理
      */
     public synchronized void addIndicator(int entityId, double x, double y, double z, float damage,
-                                         boolean isHeadshot, boolean isCritical, boolean isTaCZ,
-                                         boolean isArmorPiercing, boolean hitArmor) {
+                                          boolean isHeadshot, boolean isCritical, boolean isTaCZ,
+                                          boolean isArmorPiercing, boolean hitArmor) {
         if (!IndicatorConfig.isEnabled()) {
             return;
         }
@@ -52,6 +53,12 @@ public class DamageIndicatorManager {
                 if (ind.getEntityId() == entityId || isNearby(ind, x, y, z, 2.5)) {
                     ind.pushScrollUp(spacing);
                 }
+            }
+
+            // スクロール上限数 (maxScrolledIndicators) を超える古いインジケータを自動消去
+            int maxScrolled = IndicatorConfig.getMaxScrolledIndicators();
+            while (indicators.size() >= maxScrolled && !indicators.isEmpty()) {
+                indicators.remove(0);
             }
         }
 
@@ -85,9 +92,10 @@ public class DamageIndicatorManager {
     }
 
     /**
-     * キル確定演出（Kill Alert）の追加
+     * キル確定演出（Kill Alert）の追加・更新
+     * 同種モブの連続キル時は最新の距離とカウントでその場置換更新
      */
-    public synchronized void addKillAlert(String victimName) {
+    public synchronized void addKillAlert(String victimName, int distanceMeters) {
         if (!IndicatorConfig.isEnabled() || !IndicatorConfig.isShowKillAlert()) {
             return;
         }
@@ -95,15 +103,19 @@ public class DamageIndicatorManager {
             victimName = "Enemy";
         }
 
-        // 同一敵の直近マルチキル判定
+        // 同種モブの直近キル通知がある場合は最新距離・カウントで置換更新
         for (KillAlertInstance alert : killAlerts) {
             if (!alert.isExpired() && alert.getVictimName().equals(victimName)) {
-                alert.addMultiKill();
+                alert.updateKill(distanceMeters);
                 return;
             }
         }
 
-        killAlerts.add(new KillAlertInstance(victimName));
+        killAlerts.add(new KillAlertInstance(victimName, distanceMeters));
+    }
+
+    public synchronized void addKillAlert(String victimName) {
+        addKillAlert(victimName, 0);
     }
 
     private IndicatorInstance findRecentIndicatorForEntity(int entityId, int maxAge) {

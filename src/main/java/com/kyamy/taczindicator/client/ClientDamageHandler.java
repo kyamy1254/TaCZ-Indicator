@@ -2,6 +2,7 @@ package com.kyamy.taczindicator.client;
 
 import com.kyamy.taczindicator.TaCZIndicatorMod;
 import com.kyamy.taczindicator.config.IndicatorConfig;
+import com.kyamy.taczindicator.client.sound.SoundHelper;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.Entity;
@@ -71,7 +72,8 @@ public class ClientDamageHandler {
      */
     public static void handlePacket(int entityId, double x, double y, double z, float damage,
                                     boolean isHeadshot, boolean isCritical, boolean isTaCZ,
-                                    boolean isArmorPiercing, boolean hitArmor, boolean isKill, String victimName) {
+                                    boolean isArmorPiercing, boolean hitArmor, boolean isKill, String victimName,
+                                    int distanceMeters) {
         if (!serverPacketReceived) {
             serverPacketReceived = true;
             currentOperatingMode = OperatingMode.SERVER_SYNCED;
@@ -79,17 +81,32 @@ public class ClientDamageHandler {
 
         packetProcessedTicks.put(entityId, clientTickCount);
 
+        // onlyTaczDamage設定がtrueでTaCZダメージでない場合は除外
+        if (IndicatorConfig.isOnlyTaczDamage() && !isTaCZ) {
+            return;
+        }
+
         if (damage > 0.001f) {
             DamageIndicatorManager.getInstance().addIndicator(entityId, x, y, z, damage, isHeadshot, isCritical, isTaCZ, isArmorPiercing, hitArmor);
+            // ヒットサウンド再生
+            SoundHelper.playHitSound(isHeadshot, isArmorPiercing, hitArmor);
         }
 
         if (isKill && IndicatorConfig.isShowKillAlert()) {
-            DamageIndicatorManager.getInstance().addKillAlert(victimName);
+            DamageIndicatorManager.getInstance().addKillAlert(victimName, distanceMeters);
+            // キル確定サウンド再生
+            SoundHelper.playKillSound();
         }
     }
 
+    public static void handlePacket(int entityId, double x, double y, double z, float damage,
+                                    boolean isHeadshot, boolean isCritical, boolean isTaCZ,
+                                    boolean isArmorPiercing, boolean hitArmor, boolean isKill, String victimName) {
+        handlePacket(entityId, x, y, z, damage, isHeadshot, isCritical, isTaCZ, isArmorPiercing, hitArmor, isKill, victimName, 0);
+    }
+
     public static void handlePacket(int entityId, double x, double y, double z, float damage, boolean isHeadshot, boolean isCritical, boolean isTaCZ) {
-        handlePacket(entityId, x, y, z, damage, isHeadshot, isCritical, isTaCZ, false, false, false, "");
+        handlePacket(entityId, x, y, z, damage, isHeadshot, isCritical, isTaCZ, false, false, false, "", 0);
     }
 
     /**
