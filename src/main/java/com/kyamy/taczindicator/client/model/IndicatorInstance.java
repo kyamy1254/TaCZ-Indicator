@@ -3,16 +3,19 @@ package com.kyamy.taczindicator.client.model;
 import com.kyamy.taczindicator.config.IndicatorConfig;
 
 import java.util.Locale;
+import java.util.Random;
 
 /**
  * 個別のダメージインジケータ表示インスタンス
- * 連続ダメージの加算（スタック）、上方スクロール、防具貫通、およびポップアニメーションを管理
+ * 連続ダメージの加算（スタック）、上方スクロール、防具貫通、アニメーションスタイル（浮遊/拡散/重力/静止）、およびポップアニメーションを管理
  */
 public class IndicatorInstance {
+    private static final Random RANDOM = new Random();
+
     private final int entityId;
-    private double x;
-    private double y;
-    private double z;
+    private double originX;
+    private double originY;
+    private double originZ;
     private float damage;
     private int hitCount;
     private boolean isHeadshot;
@@ -25,9 +28,21 @@ public class IndicatorInstance {
 
     private int ageTicks;
     private final int maxLifetime;
-    private double prevY;
 
-    // HUD用スクロールアニメーション状態
+    // アニメーションスタイルと物理ベクトル
+    private final IndicatorConfig.AnimationStyle animationStyle;
+    private double motionX;
+    private double motionY;
+    private double motionZ;
+
+    private double animOffsetX;
+    private double animOffsetY;
+    private double animOffsetZ;
+    private double prevAnimOffsetX;
+    private double prevAnimOffsetY;
+    private double prevAnimOffsetZ;
+
+    // HUD用スクロールアニメーション状態 (SCROLL_UP用)
     private double currentScrollY;
     private double prevScrollY;
     private double targetScrollY;
@@ -40,10 +55,9 @@ public class IndicatorInstance {
                              boolean isHeadshot, boolean isCritical, boolean isTaCZ,
                              boolean isArmorPiercing, boolean hitArmor) {
         this.entityId = entityId;
-        this.x = x;
-        this.y = y;
-        this.prevY = y;
-        this.z = z;
+        this.originX = x;
+        this.originY = y;
+        this.originZ = z;
         this.damage = damage;
         this.hitCount = 1;
         this.isHeadshot = isHeadshot;
@@ -62,6 +76,15 @@ public class IndicatorInstance {
         this.popScale = 1.35f;
         this.prevPopScale = 1.35f;
 
+        this.animationStyle = IndicatorConfig.getAnimationStyle();
+        this.animOffsetX = 0.0;
+        this.animOffsetY = 0.0;
+        this.animOffsetZ = 0.0;
+        this.prevAnimOffsetX = 0.0;
+        this.prevAnimOffsetY = 0.0;
+        this.prevAnimOffsetZ = 0.0;
+
+        initAnimationPhysics();
         updateFormattedTextAndColor();
     }
 
@@ -71,6 +94,37 @@ public class IndicatorInstance {
 
     public static final String ICON_SHIELD = "\uE001";
     public static final String ICON_SHIELD_PENETRATION = "\uE002";
+
+    private void initAnimationPhysics() {
+        switch (this.animationStyle) {
+            case SCATTER_POP -> {
+                // Apex / Borderlands 風: 水平ランダム拡散 (約0.03〜0.06m/tick) + 初速上向き
+                double angle = RANDOM.nextDouble() * Math.PI * 2.0;
+                double speed = 0.025 + RANDOM.nextDouble() * 0.035;
+                this.motionX = Math.cos(angle) * speed;
+                this.motionZ = Math.sin(angle) * speed;
+                this.motionY = 0.045 + RANDOM.nextDouble() * 0.030;
+            }
+            case GRAVITY_DROP -> {
+                // 軽く上へ跳ね上がってから重力で落ちる
+                double angle = RANDOM.nextDouble() * Math.PI * 2.0;
+                double speed = 0.010 + RANDOM.nextDouble() * 0.015;
+                this.motionX = Math.cos(angle) * speed;
+                this.motionZ = Math.sin(angle) * speed;
+                this.motionY = 0.065;
+            }
+            case STATIC -> {
+                this.motionX = 0.0;
+                this.motionY = 0.0;
+                this.motionZ = 0.0;
+            }
+            case FLOAT_UP -> {
+                this.motionX = 0.0;
+                this.motionY = IndicatorConfig.getRiseSpeed();
+                this.motionZ = 0.0;
+            }
+        }
+    }
 
     /**
      * テキストおよびカラーの再計算
@@ -101,7 +155,7 @@ public class IndicatorInstance {
 
         this.formattedText = numText;
 
-        // カラーの決定 (色分けは 通常 / クリティカル / ヘッドショット のみ)
+        // カラーの決定 (色分けは 通常 / クリティカル / ヘッドショット)
         if (this.isHeadshot) {
             this.color = IndicatorConfig.getHeadshotColor();
         } else if (this.isCritical) {
@@ -128,6 +182,11 @@ public class IndicatorInstance {
         this.popScale = 1.45f;
         this.prevPopScale = 1.45f;
 
+        // 拡散バウンス・重力落下の初速を軽く再付与
+        if (this.animationStyle == IndicatorConfig.AnimationStyle.SCATTER_POP || this.animationStyle == IndicatorConfig.AnimationStyle.GRAVITY_DROP) {
+            this.motionY = 0.035;
+        }
+
         updateFormattedTextAndColor();
     }
 
@@ -146,18 +205,43 @@ public class IndicatorInstance {
      * ワールド座標の更新
      */
     public void updatePosition(double newX, double newY, double newZ) {
-        this.x = newX;
-        this.y = newY;
-        this.prevY = newY;
-        this.z = newZ;
+        this.originX = newX;
+        this.originY = newY;
+        this.originZ = newZ;
     }
 
     /**
      * 毎クライアントTickごとの更新
      */
     public void tick() {
-        this.prevY = this.y;
-        this.y += IndicatorConfig.getRiseSpeed();
+        this.prevAnimOffsetX = this.animOffsetX;
+        this.prevAnimOffsetY = this.animOffsetY;
+        this.prevAnimOffsetZ = this.animOffsetZ;
+
+        switch (this.animationStyle) {
+            case SCATTER_POP -> {
+                this.animOffsetX += this.motionX;
+                this.animOffsetY += this.motionY;
+                this.animOffsetZ += this.motionZ;
+                // 空気抵抗と微小減速
+                this.motionX *= 0.88;
+                this.motionZ *= 0.88;
+                this.motionY = Math.max(-0.015, this.motionY * 0.90 - 0.003);
+            }
+            case GRAVITY_DROP -> {
+                this.animOffsetX += this.motionX;
+                this.animOffsetY += this.motionY;
+                this.animOffsetZ += this.motionZ;
+                // 重力加速度
+                this.motionY -= 0.006;
+            }
+            case STATIC -> {
+                // 静止
+            }
+            case FLOAT_UP -> {
+                this.animOffsetY += IndicatorConfig.getRiseSpeed();
+            }
+        }
 
         this.prevScrollY = this.currentScrollY;
         this.currentScrollY += (this.targetScrollY - this.currentScrollY) * 0.4;
@@ -187,10 +271,38 @@ public class IndicatorInstance {
     }
 
     /**
+     * 部分Tickで補間したX座標を取得 (3D用)
+     */
+    public double getInterpolatedX(float partialTicks) {
+        return this.originX + (this.prevAnimOffsetX + (this.animOffsetX - this.prevAnimOffsetX) * partialTicks);
+    }
+
+    /**
      * 部分Tickで補間したY座標を取得 (3D用)
      */
     public double getInterpolatedY(float partialTicks) {
-        return this.prevY + (this.y - this.prevY) * partialTicks;
+        return this.originY + (this.prevAnimOffsetY + (this.animOffsetY - this.prevAnimOffsetY) * partialTicks);
+    }
+
+    /**
+     * 部分Tickで補間したZ座標を取得 (3D用)
+     */
+    public double getInterpolatedZ(float partialTicks) {
+        return this.originZ + (this.prevAnimOffsetZ + (this.animOffsetZ - this.prevAnimOffsetZ) * partialTicks);
+    }
+
+    /**
+     * 2D HUD用の補間アニメーションオフセットX (ピクセル単位)
+     */
+    public double getInterpolatedAnimOffsetX(float partialTicks) {
+        return (this.prevAnimOffsetX + (this.animOffsetX - this.prevAnimOffsetX) * partialTicks) * 140.0;
+    }
+
+    /**
+     * 2D HUD用の補間アニメーションオフセットY (ピクセル単位)
+     */
+    public double getInterpolatedAnimOffsetY(float partialTicks) {
+        return -(this.prevAnimOffsetY + (this.animOffsetY - this.prevAnimOffsetY) * partialTicks) * 140.0;
     }
 
     /**
@@ -208,9 +320,9 @@ public class IndicatorInstance {
     }
 
     public int getEntityId() { return entityId; }
-    public double getX() { return x; }
-    public double getY() { return y; }
-    public double getZ() { return z; }
+    public double getX() { return originX; }
+    public double getY() { return originY; }
+    public double getZ() { return originZ; }
     public float getDamage() { return damage; }
     public int getHitCount() { return hitCount; }
     public boolean isHeadshot() { return isHeadshot; }
@@ -221,4 +333,5 @@ public class IndicatorInstance {
     public String getFormattedText() { return formattedText; }
     public int getColor() { return color; }
     public int getAgeTicks() { return ageTicks; }
+    public IndicatorConfig.AnimationStyle getAnimationStyle() { return animationStyle; }
 }

@@ -24,6 +24,72 @@ public class IndicatorConfig {
         OFF
     }
 
+    public enum ColorTheme {
+        DEFAULT("taczindicator.theme.default", 0xFFFFFF, 0xFFCC00, 0xFF3333),
+        APEX("taczindicator.theme.apex", 0xFFFFFF, 0xFFFF00, 0xFF4500),
+        CYBERPUNK("taczindicator.theme.cyberpunk", 0x00F0FF, 0xFFE600, 0xFF0055),
+        TACTICAL_COD("taczindicator.theme.tactical", 0xDCDCDC, 0xFF8C00, 0xDC143C),
+        VALORANT("taczindicator.theme.valorant", 0xEEEEEE, 0xFFD700, 0xFF4655);
+
+        private final String translationKey;
+        public final int normalColor;
+        public final int criticalColor;
+        public final int headshotColor;
+
+        ColorTheme(String translationKey, int normalColor, int criticalColor, int headshotColor) {
+            this.translationKey = translationKey;
+            this.normalColor = normalColor;
+            this.criticalColor = criticalColor;
+            this.headshotColor = headshotColor;
+        }
+
+        public String getTranslationKey() { return translationKey; }
+    }
+
+    public enum AnimationStyle {
+        FLOAT_UP("taczindicator.animation.float_up"),
+        SCATTER_POP("taczindicator.animation.scatter_pop"),
+        GRAVITY_DROP("taczindicator.animation.gravity_drop"),
+        STATIC("taczindicator.animation.static");
+
+        private final String translationKey;
+
+        AnimationStyle(String translationKey) {
+            this.translationKey = translationKey;
+        }
+
+        public String getTranslationKey() { return translationKey; }
+    }
+
+    public enum CombatStatsDisplayMode {
+        OFF("taczindicator.stats.mode.off"),
+        COMBAT_ONLY("taczindicator.stats.mode.combat_only"),
+        ALWAYS("taczindicator.stats.mode.always");
+
+        private final String translationKey;
+
+        CombatStatsDisplayMode(String translationKey) {
+            this.translationKey = translationKey;
+        }
+
+        public String getTranslationKey() { return translationKey; }
+    }
+
+    public enum CombatStatsPosition {
+        TOP_LEFT("taczindicator.stats.pos.top_left"),
+        TOP_RIGHT("taczindicator.stats.pos.top_right"),
+        BOTTOM_LEFT("taczindicator.stats.pos.bottom_left"),
+        BOTTOM_RIGHT("taczindicator.stats.pos.bottom_right");
+
+        private final String translationKey;
+
+        CombatStatsPosition(String translationKey) {
+            this.translationKey = translationKey;
+        }
+
+        public String getTranslationKey() { return translationKey; }
+    }
+
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
         CLIENT = new Client(builder);
@@ -48,6 +114,7 @@ public class IndicatorConfig {
     // [display]
     public static RenderMode getRenderMode() { return CLIENT.getRenderMode(); }
     public static ConsecutiveMode getConsecutiveMode() { return CLIENT.getConsecutiveMode(); }
+    public static AnimationStyle getAnimationStyle() { return CLIENT.getAnimationStyle(); }
     public static int getComboTimeoutTicks() { return CLIENT.getComboTimeoutTicks(); }
     public static boolean isShowHitCount() { return CLIENT.isShowHitCount(); }
     public static boolean isShowKillAlert() { return CLIENT.isShowKillAlert(); }
@@ -71,6 +138,7 @@ public class IndicatorConfig {
     public static int getLifetime() { return CLIENT.getLifetime(); }
 
     // [icons_and_colors]
+    public static ColorTheme getColorTheme() { return CLIENT.getColorTheme(); }
     public static boolean isShowHeadshotIcon() { return CLIENT.isShowHeadshotIcon(); }
     public static boolean isShowCriticalIcon() { return CLIENT.isShowCriticalIcon(); }
     public static boolean isShowArmorPiercingIcon() { return CLIENT.isShowArmorPiercingIcon(); }
@@ -80,6 +148,15 @@ public class IndicatorConfig {
     public static int getHeadshotColor() { return CLIENT.getHeadshotColor(); }
     public static int getArmorPiercingColor() { return CLIENT.getArmorPiercingColor(); }
     public static int getTaczColor() { return CLIENT.getTaczColor(); }
+
+    public static void applyColorTheme(ColorTheme theme) {
+        if (theme != null && CLIENT != null) {
+            CLIENT.colorTheme.set(theme);
+            CLIENT.normalDamageColor.set(theme.normalColor);
+            CLIENT.criticalDamageColor.set(theme.criticalColor);
+            CLIENT.headshotDamageColor.set(theme.headshotColor);
+        }
+    }
 
     // [damage_vignette]
     public static boolean isDamageVignetteEnabled() { return CLIENT.isDamageVignetteEnabled(); }
@@ -95,6 +172,11 @@ public class IndicatorConfig {
     public static boolean isKillSoundEnabled() { return CLIENT.isKillSoundEnabled(); }
     public static double getKillSoundVolume() { return CLIENT.getKillSoundVolume(); }
 
+    // [combat_stats]
+    public static CombatStatsDisplayMode getCombatStatsMode() { return CLIENT.getCombatStatsMode(); }
+    public static CombatStatsPosition getCombatStatsPosition() { return CLIENT.getCombatStatsPosition(); }
+    public static double getCombatStatsScale() { return CLIENT.getCombatStatsScale(); }
+
     public static class Client {
         // [general] 全般設定
         public final ForgeConfigSpec.BooleanValue enabled;
@@ -105,6 +187,7 @@ public class IndicatorConfig {
         // [display] 表示動作設定
         public final ForgeConfigSpec.EnumValue<RenderMode> renderMode;
         public final ForgeConfigSpec.EnumValue<ConsecutiveMode> consecutiveMode;
+        public final ForgeConfigSpec.EnumValue<AnimationStyle> animationStyle;
         public final ForgeConfigSpec.IntValue comboTimeoutTicks;
         public final ForgeConfigSpec.BooleanValue showHitCount;
         public final ForgeConfigSpec.BooleanValue showKillAlert;
@@ -128,6 +211,7 @@ public class IndicatorConfig {
         public final ForgeConfigSpec.IntValue lifetimeTicks;
 
         // [icons_and_colors] アイコン・カラー設定
+        public final ForgeConfigSpec.EnumValue<ColorTheme> colorTheme;
         public final ForgeConfigSpec.BooleanValue showHeadshotIcon;
         public final ForgeConfigSpec.BooleanValue showCriticalIcon;
         public final ForgeConfigSpec.BooleanValue showArmorPiercingIcon;
@@ -151,6 +235,11 @@ public class IndicatorConfig {
         public final ForgeConfigSpec.BooleanValue enableHeadshotSound;
         public final ForgeConfigSpec.BooleanValue enableKillSound;
         public final ForgeConfigSpec.DoubleValue killSoundVolume;
+
+        // [combat_stats] 戦闘統計・DPSメーター設定
+        public final ForgeConfigSpec.EnumValue<CombatStatsDisplayMode> combatStatsMode;
+        public final ForgeConfigSpec.EnumValue<CombatStatsPosition> combatStatsPosition;
+        public final ForgeConfigSpec.DoubleValue combatStatsScale;
 
         public Client(ForgeConfigSpec.Builder builder) {
             // -------------------------------------------------------------
@@ -198,6 +287,14 @@ public class IndicatorConfig {
                              "  SCROLL_UP  : 古い数値を上へ押し上げて順番に流す",
                              "  OFF        : 毎回個別に新規表示")
                     .defineEnum("consecutiveMode", ConsecutiveMode.ACCUMULATE);
+
+            animationStyle = builder
+                    .comment("ダメージ数値のポップアニメーションスタイル:",
+                             "  FLOAT_UP     : 上方へふわっと浮遊上昇（標準）",
+                             "  SCATTER_POP  : 左右へランダムに小さく跳ねて散らばる（Apex/Borderlands風・連射時の視認性向上）",
+                             "  GRAVITY_DROP : 軽く跳ね上がってから重力で落ちる",
+                             "  STATIC       : その場で拡大ポップ（移動なし）")
+                    .defineEnum("animationStyle", AnimationStyle.FLOAT_UP);
 
             comboTimeoutTicks = builder
                     .comment("連続ヒットと判定する制限時間（Tick単位: 20Ticks = 1秒）")
@@ -294,6 +391,10 @@ public class IndicatorConfig {
                             " 5. アイコン・カラー設定 (Icons & Colors Settings)",
                             "==================================================").push("icons_and_colors");
 
+            colorTheme = builder
+                    .comment("カラーテーマ・プリセット (DEFAULT, APEX, CYBERPUNK, TACTICAL_COD, VALORANT)")
+                    .defineEnum("colorTheme", ColorTheme.DEFAULT);
+
             showHeadshotIcon = builder
                     .comment("ヘッドショット時にドクロアイコン(☠)を表示するかどうか")
                     .define("showHeadshotIcon", true);
@@ -389,6 +490,30 @@ public class IndicatorConfig {
                     .defineInRange("killSoundVolume", 0.9D, 0.0D, 1.0D);
 
             builder.pop();
+
+            // -------------------------------------------------------------
+            // 8. [combat_stats] 戦闘統計・DPSメーター設定
+            // -------------------------------------------------------------
+            builder.comment("==================================================",
+                            " 8. 戦闘統計・DPSメーター設定 (Combat Stats & DPS Meter Settings)",
+                            "==================================================").push("combat_stats");
+
+            combatStatsMode = builder
+                    .comment("戦闘統計（DPS・総ダメージ・命中数・HS率・キル数）のHUD表示モード:",
+                             "  OFF         : 非表示",
+                             "  COMBAT_ONLY : 戦闘中のみ表示（非戦闘時に5秒でフェードアウト）",
+                             "  ALWAYS      : 常に画面上に表示")
+                    .defineEnum("combatStatsMode", CombatStatsDisplayMode.COMBAT_ONLY);
+
+            combatStatsPosition = builder
+                    .comment("戦闘統計カードの画面配置位置 (TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT)")
+                    .defineEnum("combatStatsPosition", CombatStatsPosition.TOP_RIGHT);
+
+            combatStatsScale = builder
+                    .comment("戦闘統計カードのHUD拡大スケール")
+                    .defineInRange("combatStatsScale", 1.0D, 0.5D, 2.5D);
+
+            builder.pop();
         }
 
         // 安全なゲッター
@@ -409,6 +534,9 @@ public class IndicatorConfig {
         }
         public ConsecutiveMode getConsecutiveMode() {
             try { return consecutiveMode != null ? consecutiveMode.get() : ConsecutiveMode.ACCUMULATE; } catch (Exception e) { return ConsecutiveMode.ACCUMULATE; }
+        }
+        public AnimationStyle getAnimationStyle() {
+            try { return animationStyle != null ? animationStyle.get() : AnimationStyle.FLOAT_UP; } catch (Exception e) { return AnimationStyle.FLOAT_UP; }
         }
         public int getComboTimeoutTicks() {
             try { return comboTimeoutTicks != null ? comboTimeoutTicks.get() : 30; } catch (Exception e) { return 30; }
@@ -460,6 +588,9 @@ public class IndicatorConfig {
         }
         public int getLifetime() {
             try { return lifetimeTicks != null ? lifetimeTicks.get() : 35; } catch (Exception e) { return 35; }
+        }
+        public ColorTheme getColorTheme() {
+            try { return colorTheme != null ? colorTheme.get() : ColorTheme.DEFAULT; } catch (Exception e) { return ColorTheme.DEFAULT; }
         }
         public boolean isShowHeadshotIcon() {
             try { return showHeadshotIcon != null && showHeadshotIcon.get(); } catch (Exception e) { return true; }
@@ -517,6 +648,15 @@ public class IndicatorConfig {
         }
         public double getKillSoundVolume() {
             try { return killSoundVolume != null ? killSoundVolume.get() : 0.9D; } catch (Exception e) { return 0.9D; }
+        }
+        public CombatStatsDisplayMode getCombatStatsMode() {
+            try { return combatStatsMode != null ? combatStatsMode.get() : CombatStatsDisplayMode.COMBAT_ONLY; } catch (Exception e) { return CombatStatsDisplayMode.COMBAT_ONLY; }
+        }
+        public CombatStatsPosition getCombatStatsPosition() {
+            try { return combatStatsPosition != null ? combatStatsPosition.get() : CombatStatsPosition.TOP_RIGHT; } catch (Exception e) { return CombatStatsPosition.TOP_RIGHT; }
+        }
+        public double getCombatStatsScale() {
+            try { return combatStatsScale != null ? combatStatsScale.get() : 1.0D; } catch (Exception e) { return 1.0D; }
         }
     }
 }

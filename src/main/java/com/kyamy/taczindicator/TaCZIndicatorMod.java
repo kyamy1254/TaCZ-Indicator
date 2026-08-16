@@ -36,6 +36,7 @@ public class TaCZIndicatorMod {
 
         // サーバー側イベントハンドラの明示的登録
         MinecraftForge.EVENT_BUS.register(DamageEventHandler.class);
+        MinecraftForge.EVENT_BUS.register(com.kyamy.taczindicator.command.ModCommands.class);
 
         // TaCZ互換イベントリスナーの動的初期化
         com.kyamy.taczindicator.server.TaCZCompatHandler.init();

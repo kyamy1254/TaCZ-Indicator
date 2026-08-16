@@ -101,9 +101,9 @@ public class DamageIndicatorHudRenderer {
 
             if (renderMode == IndicatorConfig.RenderMode.HUD_PROJECTED) {
                 ScreenProjectionUtil.ProjectionResult proj = ScreenProjectionUtil.projectToScreen(
-                        indicator.getX(),
+                        indicator.getInterpolatedX(partialTick),
                         indicator.getInterpolatedY(partialTick),
-                        indicator.getZ()
+                        indicator.getInterpolatedZ(partialTick)
                 );
 
                 if (!proj.isVisible()) {
@@ -124,12 +124,12 @@ public class DamageIndicatorHudRenderer {
 
                 drawX = -font.width(indicator.getFormattedText()) / 2;
             } else {
-                // HUD_CROSSHAIRモード (レティクル横・ターゲット別行分離スタック)
+                // HUD_CROSSHAIRモード (レティクル横・ターゲット別行分離スタック + アニメーションオフセット)
                 int slot = entitySlotMap.getOrDefault(indicator.getEntityId(), 0);
                 double slotVerticalOffset = slot * ((font.lineHeight + 3) * baseHudScale);
 
-                posX = (screenWidth / 2.0) + IndicatorConfig.getCrosshairOffsetX();
-                posY = (screenHeight / 2.0) + IndicatorConfig.getCrosshairOffsetY() + slotVerticalOffset - indicator.getInterpolatedScrollY(partialTick);
+                posX = (screenWidth / 2.0) + IndicatorConfig.getCrosshairOffsetX() + indicator.getInterpolatedAnimOffsetX(partialTick);
+                posY = (screenHeight / 2.0) + IndicatorConfig.getCrosshairOffsetY() + slotVerticalOffset - indicator.getInterpolatedScrollY(partialTick) + indicator.getInterpolatedAnimOffsetY(partialTick);
                 drawX = 0;
             }
 

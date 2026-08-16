@@ -69,9 +69,9 @@ public class DamageIndicatorRenderer {
         boolean enableXRay = IndicatorConfig.isXRay();
 
         for (IndicatorInstance indicator : indicators) {
-            double posX = indicator.getX();
+            double posX = indicator.getInterpolatedX(partialTick);
             double posY = indicator.getInterpolatedY(partialTick);
-            double posZ = indicator.getZ();
+            double posZ = indicator.getInterpolatedZ(partialTick);
 
             double relX = posX - cameraPos.x;
             double relY = posY - cameraPos.y;

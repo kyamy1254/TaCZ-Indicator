@@ -331,6 +331,79 @@ public class IndicatorLogicTest {
         return tmax >= 0;
     }
 
+    @Test
+    @DisplayName("カラーテーマ・プリセットの定義検証")
+    void testColorThemeDefinitions() {
+        for (com.kyamy.taczindicator.config.IndicatorConfig.ColorTheme theme : com.kyamy.taczindicator.config.IndicatorConfig.ColorTheme.values()) {
+            assertNotNull(theme.getTranslationKey());
+            assertTrue((theme.normalColor & 0xFF000000) == 0, "Color should be 24-bit RGB");
+            assertTrue((theme.criticalColor & 0xFF000000) == 0, "Color should be 24-bit RGB");
+            assertTrue((theme.headshotColor & 0xFF000000) == 0, "Color should be 24-bit RGB");
+        }
+    }
+
+    @Test
+    @DisplayName("戦闘統計・DPSメーターの集計とリセットロジック検証")
+    void testCombatStatsTrackingAndReset() {
+        com.kyamy.taczindicator.client.stats.CombatStatsManager manager = com.kyamy.taczindicator.client.stats.CombatStatsManager.getInstance();
+        manager.resetStats();
+
+        assertEquals(0.0, manager.getTotalDamage(), 1e-6);
+        assertEquals(0, manager.getTotalHits());
+        assertEquals(0, manager.getTotalHeadshots());
+        assertEquals(0, manager.getTotalKills());
+        assertEquals(0.0f, manager.getDPS(), 1e-6);
+
+        // 1発目: 通常 40.0
+        manager.recordDamage(40.0f, false, false);
+        assertEquals(40.0, manager.getTotalDamage(), 1e-6);
+        assertEquals(1, manager.getTotalHits());
+        assertEquals(0, manager.getTotalHeadshots());
+        assertEquals(0.0f, manager.getHeadshotRate(), 1e-6);
+
+        // 2発目: HS 80.0
+        manager.recordDamage(80.0f, true, false);
+        assertEquals(120.0, manager.getTotalDamage(), 1e-6);
+        assertEquals(2, manager.getTotalHits());
+        assertEquals(1, manager.getTotalHeadshots());
+        assertEquals(50.0f, manager.getHeadshotRate(), 1e-6);
+
+        // 3発目: キル 30.0
+        manager.recordDamage(30.0f, false, true);
+        assertEquals(150.0, manager.getTotalDamage(), 1e-6);
+        assertEquals(3, manager.getTotalHits());
+        assertEquals(1, manager.getTotalKills());
+
+        assertTrue(manager.getDPS() > 0.0f);
+        assertTrue(manager.isInCombat());
+
+        // リセット
+        manager.resetStats();
+        assertEquals(0.0, manager.getTotalDamage(), 1e-6);
+        assertEquals(0, manager.getTotalHits());
+        assertEquals(0, manager.getTotalHeadshots());
+        assertEquals(0, manager.getTotalKills());
+        assertEquals(0.0f, manager.getDPS(), 1e-6);
+    }
+
+    @Test
+    @DisplayName("アニメーションスタイルごとの物理ベクトル更新検証")
+    void testAnimationStylePhysics() {
+        com.kyamy.taczindicator.client.model.IndicatorInstance ind = new com.kyamy.taczindicator.client.model.IndicatorInstance(
+                1, 0, 64, 0, 50.0f, false, false, true
+        );
+        assertNotNull(ind.getAnimationStyle());
+
+        // 初期オフセットは0
+        assertEquals(0.0, ind.getInterpolatedAnimOffsetX(0.0f), 1e-4);
+        assertEquals(0.0, ind.getInterpolatedAnimOffsetY(0.0f), 1e-4);
+
+        // tick更新
+        ind.tick();
+        // 移動または更新が行われていること
+        assertTrue(ind.getAgeTicks() == 1);
+    }
+
     private float calculateAlpha(int ageTicks, int maxLifetime) {
         float progress = (float) ageTicks / (float) maxLifetime;
         if (progress > 0.7f) {

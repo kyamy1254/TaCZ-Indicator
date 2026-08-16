@@ -4,7 +4,7 @@
 
   "taczindicator.gui.title": "TaCZ Indicator 設定",
   "taczindicator.gui.tab.general": "全般・表示",
-  "taczindicator.gui.tab.hud": "HUD・配置",
+  "taczindicator.gui.tab.hud": "HUD・DPS設定",
   "taczindicator.gui.tab.visuals": "アイコン・3D・効果",
   "taczindicator.gui.tab.sounds": "サウンド設定",
 
@@ -15,12 +15,15 @@
   "taczindicator.gui.category.colors": "アイコン・色",
   "taczindicator.gui.category.damage_vignette": "被ダメ画面効果",
   "taczindicator.gui.category.sounds": "サウンド設定",
+  "taczindicator.gui.category.combat_stats": "戦闘統計・DPS設定",
 
   "taczindicator.gui.enabled": "機能有効化: %s",
   "taczindicator.gui.only_player_damage": "プレイヤー与ダメ限定: %s",
   "taczindicator.gui.only_tacz_damage": "TaCZ銃撃限定: %s",
   "taczindicator.gui.render_mode": "描画: %s",
   "taczindicator.gui.consecutive_mode": "コンボ: %s",
+  "taczindicator.gui.animation_style": "アニメ: %s",
+  "taczindicator.gui.color_theme": "テーマ: %s",
   "taczindicator.gui.show_kill_alert": "キル演出: %s",
   "taczindicator.gui.show_hit_count": "ヒット数(x3): %s",
   "taczindicator.gui.show_headshot_icon": "☠ ドクロ表示: %s",
@@ -41,6 +44,35 @@
   "taczindicator.gui.drag_instruction": "中央の数字をドラッグして位置を調整できます",
   "taczindicator.gui.save_and_close": "保存して適用",
   "taczindicator.gui.reset_defaults": "位置リセット",
+
+  "taczindicator.gui.combat_stats_mode": "DPSメーター: %s",
+  "taczindicator.gui.combat_stats_position": "DPS位置: %s",
+  "taczindicator.gui.reset_stats_btn": "統計をリセット",
+
+  "taczindicator.theme.default": "デフォルト",
+  "taczindicator.theme.apex": "Apex風",
+  "taczindicator.theme.cyberpunk": "Cyberpunk風",
+  "taczindicator.theme.tactical": "Tactical (CoD)",
+  "taczindicator.theme.valorant": "Valorant風",
+
+  "taczindicator.animation.float_up": "浮遊上昇",
+  "taczindicator.animation.scatter_pop": "拡散バウンス",
+  "taczindicator.animation.gravity_drop": "重力落下",
+  "taczindicator.animation.static": "静止拡大",
+
+  "taczindicator.stats.mode.off": "非表示",
+  "taczindicator.stats.mode.combat_only": "戦闘中のみ",
+  "taczindicator.stats.mode.always": "常時表示",
+
+  "taczindicator.stats.pos.top_left": "左上",
+  "taczindicator.stats.pos.top_right": "右上",
+  "taczindicator.stats.pos.bottom_left": "左下",
+  "taczindicator.stats.pos.bottom_right": "右下",
+
+  "taczindicator.stats.reset_notice": "§b[TaCZ Indicator] §a戦闘統計（DPS・総ダメージ）がリセットされました。",
+  "taczindicator.command.reset_self_success": "§aあなたの戦闘統計をリセットしました。",
+  "taczindicator.command.reset_all_success": "§a全プレイヤーの戦闘統計をリセットしました。",
+  "taczindicator.command.reset_targets_success": "§a%d 名のプレイヤーの戦闘統計をリセットしました。",
 
   "taczindicator.status.title": "[TaCZ Indicator] 動作ステータス情報:",
   "taczindicator.status.mode": "  - 動作モード: %s",

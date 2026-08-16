@@ -88,6 +88,8 @@ public class ClientDamageHandler {
 
         if (damage > 0.001f) {
             DamageIndicatorManager.getInstance().addIndicator(entityId, x, y, z, damage, isHeadshot, isCritical, isTaCZ, isArmorPiercing, hitArmor);
+            // 戦闘統計の記録
+            com.kyamy.taczindicator.client.stats.CombatStatsManager.getInstance().recordDamage(damage, isHeadshot, isKill);
             // ヒットサウンド再生
             SoundHelper.playHitSound(isHeadshot, isArmorPiercing, hitArmor);
         }
@@ -241,6 +243,9 @@ public class ClientDamageHandler {
                                 false,
                                 hitArmor
                         );
+
+                        // 戦闘統計の記録
+                        com.kyamy.taczindicator.client.stats.CombatStatsManager.getInstance().recordDamage(delta, false, entity.isDeadOrDying());
 
                         // 厳密なクライアントキル判定（deathTime == 1 かつ プレイヤー起因）
                         if (entity.isDeadOrDying() && entity.deathTime == 1 && IndicatorConfig.isShowKillAlert()) {

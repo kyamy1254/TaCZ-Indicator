@@ -41,11 +41,23 @@ public class ModMessages {
                 .encoder(ServerHandshakePacket::toBytes)
                 .consumerMainThread(ServerHandshakePacket::handle)
                 .add();
+
+        net.messageBuilder(ResetCombatStatsPacket.class, id(), NetworkDirection.PLAY_TO_CLIENT)
+                .decoder(ResetCombatStatsPacket::new)
+                .encoder(ResetCombatStatsPacket::toBytes)
+                .consumerMainThread(ResetCombatStatsPacket::handle)
+                .add();
     }
 
     public static <MSG> void sendToPlayer(MSG message, ServerPlayer player) {
         if (INSTANCE != null && player != null) {
             INSTANCE.send(PacketDistributor.PLAYER.with(() -> player), message);
+        }
+    }
+
+    public static <MSG> void sendToAllPlayers(MSG message) {
+        if (INSTANCE != null) {
+            INSTANCE.send(PacketDistributor.ALL.noArg(), message);
         }
     }
 }

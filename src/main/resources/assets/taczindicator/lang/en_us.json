@@ -4,7 +4,7 @@
 
   "taczindicator.gui.title": "TaCZ Indicator Settings",
   "taczindicator.gui.tab.general": "General",
-  "taczindicator.gui.tab.hud": "HUD & Layout",
+  "taczindicator.gui.tab.hud": "HUD & DPS",
   "taczindicator.gui.tab.visuals": "Visuals & 3D",
   "taczindicator.gui.tab.sounds": "Sounds",
 
@@ -15,12 +15,15 @@
   "taczindicator.gui.category.colors": "Icons & Colors",
   "taczindicator.gui.category.damage_vignette": "Damage Vignette",
   "taczindicator.gui.category.sounds": "Sound Effects",
+  "taczindicator.gui.category.combat_stats": "Combat Stats & DPS",
 
   "taczindicator.gui.enabled": "Indicator: %s",
   "taczindicator.gui.only_player_damage": "Only Player: %s",
   "taczindicator.gui.only_tacz_damage": "Only TaCZ: %s",
   "taczindicator.gui.render_mode": "Mode: %s",
   "taczindicator.gui.consecutive_mode": "Combo: %s",
+  "taczindicator.gui.animation_style": "Anim: %s",
+  "taczindicator.gui.color_theme": "Theme: %s",
   "taczindicator.gui.show_kill_alert": "Kill Alert: %s",
   "taczindicator.gui.show_hit_count": "Hit Count: %s",
   "taczindicator.gui.show_headshot_icon": "☠ Headshot: %s",
@@ -41,6 +44,35 @@
   "taczindicator.gui.drag_instruction": "Click and drag preview text to reposition",
   "taczindicator.gui.save_and_close": "Save & Apply",
   "taczindicator.gui.reset_defaults": "Reset Position",
+
+  "taczindicator.gui.combat_stats_mode": "DPS Meter: %s",
+  "taczindicator.gui.combat_stats_position": "DPS Pos: %s",
+  "taczindicator.gui.reset_stats_btn": "Reset Stats",
+
+  "taczindicator.theme.default": "Default",
+  "taczindicator.theme.apex": "Apex Style",
+  "taczindicator.theme.cyberpunk": "Cyberpunk Style",
+  "taczindicator.theme.tactical": "Tactical (CoD)",
+  "taczindicator.theme.valorant": "Valorant Style",
+
+  "taczindicator.animation.float_up": "Float Up",
+  "taczindicator.animation.scatter_pop": "Scatter Pop",
+  "taczindicator.animation.gravity_drop": "Gravity Drop",
+  "taczindicator.animation.static": "Static",
+
+  "taczindicator.stats.mode.off": "Off",
+  "taczindicator.stats.mode.combat_only": "In Combat Only",
+  "taczindicator.stats.mode.always": "Always Visible",
+
+  "taczindicator.stats.pos.top_left": "Top Left",
+  "taczindicator.stats.pos.top_right": "Top Right",
+  "taczindicator.stats.pos.bottom_left": "Bottom Left",
+  "taczindicator.stats.pos.bottom_right": "Bottom Right",
+
+  "taczindicator.stats.reset_notice": "§b[TaCZ Indicator] §aCombat stats (DPS/Total Damage) have been reset.",
+  "taczindicator.command.reset_self_success": "§aYour combat stats have been reset.",
+  "taczindicator.command.reset_all_success": "§aAll players' combat stats have been reset.",
+  "taczindicator.command.reset_targets_success": "§aReset combat stats for %d players.",
 
   "taczindicator.status.title": "[TaCZ Indicator] Operating Status:",
   "taczindicator.status.mode": "  - Operating Mode: %s",
