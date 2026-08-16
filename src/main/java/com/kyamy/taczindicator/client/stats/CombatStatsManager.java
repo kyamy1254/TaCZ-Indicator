@@ -139,26 +139,25 @@ public class CombatStatsManager {
             this.peakDps = currentDps;
         }
 
-        // ログエントリの作成
-        String targetStr = (victimName != null && !victimName.isEmpty()) ? victimName : "Target";
-        StringBuilder logMsg = new StringBuilder();
+        // ログエントリの作成（キル確定時のみ履歴リストに記録）
         if (isKill) {
+            String targetStr = (victimName != null && !victimName.isEmpty()) ? victimName : "Target";
+            StringBuilder logMsg = new StringBuilder();
             logMsg.append("§c☠ Killed ").append(targetStr);
             if (distanceMeters > 0) {
                 logMsg.append(" §7[").append(distanceMeters).append("m]");
             }
-            logMsg.append(" §f(").append(String.format(Locale.ROOT, "%.1f dmg", damage)).append(")");
-        } else {
-            logMsg.append("§fHit ").append(targetStr).append(": §e").append(String.format(Locale.ROOT, "%.1f", damage));
+            if (damage > 0.001f) {
+                logMsg.append(" §f(").append(String.format(Locale.ROOT, "%.1f dmg", damage)).append(")");
+            }
             if (isHeadshot) logMsg.append(" §c[HS ☠]");
             else if (isCritical) logMsg.append(" §6[Crit ★]");
             if (isArmorPiercing) logMsg.append(" §f[AP 🗡]");
-            else if (hitArmor) logMsg.append(" §b[Shield 🛡]");
-        }
 
-        this.combatLogs.add(0, new CombatLogEntry(now, logMsg.toString(), damage, isKill, isHeadshot, isCritical, isArmorPiercing));
-        if (this.combatLogs.size() > MAX_LOGS) {
-            this.combatLogs.remove(this.combatLogs.size() - 1);
+            this.combatLogs.add(0, new CombatLogEntry(now, logMsg.toString(), damage, true, isHeadshot, isCritical, isArmorPiercing));
+            if (this.combatLogs.size() > MAX_LOGS) {
+                this.combatLogs.remove(this.combatLogs.size() - 1);
+            }
         }
     }
 
@@ -166,9 +165,30 @@ public class CombatStatsManager {
         recordDamage(damage, isHeadshot, false, false, false, false, isKill, "", 0);
     }
 
-    public synchronized void recordKill() {
+    public synchronized void recordKill(String victimName, int distanceMeters) {
         this.totalKills++;
-        this.lastDamageTimeMs = System.currentTimeMillis();
+        long now = System.currentTimeMillis();
+        this.lastDamageTimeMs = now;
+        if (distanceMeters > this.maxKillDistance) {
+            this.maxKillDistance = distanceMeters;
+        }
+        if (distanceMeters > 0) {
+            this.totalKillDistance += distanceMeters;
+        }
+        String targetStr = (victimName != null && !victimName.isEmpty()) ? victimName : "Target";
+        StringBuilder logMsg = new StringBuilder();
+        logMsg.append("§c☠ Killed ").append(targetStr);
+        if (distanceMeters > 0) {
+            logMsg.append(" §7[").append(distanceMeters).append("m]");
+        }
+        this.combatLogs.add(0, new CombatLogEntry(now, logMsg.toString(), 0.0f, true, false, false, false));
+        if (this.combatLogs.size() > MAX_LOGS) {
+            this.combatLogs.remove(this.combatLogs.size() - 1);
+        }
+    }
+
+    public synchronized void recordKill() {
+        recordKill("", 0);
     }
 
     private void cleanOldEntries(long now) {

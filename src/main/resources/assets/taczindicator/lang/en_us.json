@@ -57,7 +57,8 @@
   "taczindicator.stats.gui.copied_feedback": "Copied to clipboard!",
   "taczindicator.stats.gui.reset_feedback": "Combat stats reset!",
   "taczindicator.stats.gui.config_btn": "⚙ Settings",
-  "taczindicator.stats.gui.no_logs": "No combat data recorded yet",
+  "taczindicator.stats.gui.kill_logs_title": "[ Kill History (Last 50) ]",
+  "taczindicator.stats.gui.no_kill_logs": "No kills recorded yet",
 
   "taczindicator.theme.default": "Default",
   "taczindicator.theme.apex": "Apex Style",

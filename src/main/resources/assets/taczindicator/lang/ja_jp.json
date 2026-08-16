@@ -57,7 +57,8 @@
   "taczindicator.stats.gui.copied_feedback": "クリップボードにコピーしました！",
   "taczindicator.stats.gui.reset_feedback": "戦闘統計をリセットしました！",
   "taczindicator.stats.gui.config_btn": "⚙ 設定画面",
-  "taczindicator.stats.gui.no_logs": "戦闘データはまだありません",
+  "taczindicator.stats.gui.kill_logs_title": "[ キル履歴一覧 (最新50件) ]",
+  "taczindicator.stats.gui.no_kill_logs": "キル履歴はまだありません",
 
   "taczindicator.theme.default": "デフォルト",
   "taczindicator.theme.apex": "Apex風",

@@ -144,14 +144,14 @@ public class CombatStatsScreen extends Screen {
         guiGraphics.renderOutline(marginX, logStartY, logWidth, logHeight, 0xAA00A0E9);
 
         // ログヘッダー
-        guiGraphics.drawString(this.font, "§b§l[ 最近の戦闘ログ (最新50件) ]", marginX + 6, logStartY + 4, 0x00F0FF, false);
+        guiGraphics.drawString(this.font, "§c§l" + Component.translatable("taczindicator.stats.gui.kill_logs_title").getString(), marginX + 6, logStartY + 4, 0xFF5555, false);
 
         List<CombatStatsManager.CombatLogEntry> logs = stats.getCombatLogs();
         int visibleLines = (logHeight - 16) / 10;
         int contentY = logStartY + 16;
 
         if (logs.isEmpty()) {
-            guiGraphics.drawString(this.font, "§7" + Component.translatable("taczindicator.stats.gui.no_logs").getString(), marginX + 10, contentY + 6, 0x777777, false);
+            guiGraphics.drawString(this.font, "§7" + Component.translatable("taczindicator.stats.gui.no_kill_logs").getString(), marginX + 10, contentY + 6, 0x777777, false);
         } else {
             int startIndex = Math.max(0, Math.min(this.scrollOffset, Math.max(0, logs.size() - visibleLines)));
             int endIndex = Math.min(logs.size(), startIndex + visibleLines);

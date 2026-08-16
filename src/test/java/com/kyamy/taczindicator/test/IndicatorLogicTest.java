@@ -411,9 +411,10 @@ public class IndicatorLogicTest {
         assertEquals(120.0f, manager.getAverageKillDistance(), 1e-4);
         assertTrue(manager.getPeakDps() > 0.0f);
 
-        // 3. ログエントリの確認
-        assertEquals(2, manager.getCombatLogs().size());
+        // 3. キル履歴ログエントリの確認（通常ヒットは記録されずキルのみ記録されること）
+        assertEquals(1, manager.getCombatLogs().size());
         assertTrue(manager.getCombatLogs().get(0).getMessage().contains("Skeleton"));
+        assertTrue(manager.getCombatLogs().get(0).getMessage().contains("120m"));
 
         // 4. 整形レポート生成
         String report = manager.generateStatsReportText();
