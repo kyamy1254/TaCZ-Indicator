@@ -1,7 +1,6 @@
 package com.kyamy.taczindicator.client.gui;
 
 import com.kyamy.taczindicator.client.stats.CombatStatsManager;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
@@ -12,11 +11,30 @@ import java.util.Locale;
 
 /**
  * 戦闘統計詳細GUI画面 (CombatStatsScreen)
- * ダメージ、DPS、命中分析、防具貫通、キル距離、およびリアルタイム戦闘ログを一覧表示
+ * タブ切り替え（総合概要・武器別統計・キル履歴）、武器別キル/ダメージ分析、およびリアルタイム戦闘ログを一覧表示
  */
 public class CombatStatsScreen extends Screen {
 
+    public enum StatsViewTab {
+        OVERVIEW("taczindicator.stats.tab.overview"),
+        WEAPONS("taczindicator.stats.tab.weapons"),
+        KILL_LOGS("taczindicator.stats.tab.kill_logs");
+
+        private final String translationKey;
+
+        StatsViewTab(String translationKey) {
+            this.translationKey = translationKey;
+        }
+
+        public Component getTitle(boolean isSelected) {
+            String prefix = isSelected ? "§a§l[" : "§7";
+            String suffix = isSelected ? "§a§l]" : "§7";
+            return Component.literal(prefix + " ").append(Component.translatable(this.translationKey)).append(suffix);
+        }
+    }
+
     private final Screen parentScreen;
+    private StatsViewTab currentTab = StatsViewTab.OVERVIEW;
     private int scrollOffset = 0;
     private String feedbackMessage = "";
     private long feedbackTimeMs = 0L;
@@ -36,10 +54,26 @@ public class CombatStatsScreen extends Screen {
         this.clearWidgets();
 
         int centerX = this.width / 2;
+
+        // 1. ビュー切り替えタブバー
+        int tabWidth = Math.min(130, (this.width - 20) / 3);
+        int tabTotalWidth = tabWidth * 3;
+        int tabStartX = centerX - tabTotalWidth / 2;
+        int tabY = 22;
+
+        for (int i = 0; i < StatsViewTab.values().length; i++) {
+            StatsViewTab tab = StatsViewTab.values()[i];
+            this.addRenderableWidget(Button.builder(tab.getTitle(this.currentTab == tab), btn -> {
+                this.currentTab = tab;
+                this.scrollOffset = 0;
+                this.init();
+            }).bounds(tabStartX + i * tabWidth, tabY, tabWidth - 2, 18).build());
+        }
+
         int bottomY = this.height - 24;
         int btnWidth = 100;
 
-        // 1. クリップボードコピーボタン
+        // 2. クリップボードコピーボタン
         this.addRenderableWidget(Button.builder(
                 Component.translatable("taczindicator.stats.gui.copy_btn"),
                 btn -> {
@@ -52,7 +86,7 @@ public class CombatStatsScreen extends Screen {
                 }
         ).bounds(centerX - btnWidth * 2 - 15, bottomY, btnWidth, 20).build());
 
-        // 2. 統計リセットボタン
+        // 3. 統計リセットボタン
         this.addRenderableWidget(Button.builder(
                 Component.translatable("taczindicator.gui.reset_stats_btn"),
                 btn -> {
@@ -62,7 +96,7 @@ public class CombatStatsScreen extends Screen {
                 }
         ).bounds(centerX - btnWidth - 5, bottomY, btnWidth, 20).build());
 
-        // 3. 設定画面への遷移ボタン
+        // 4. 設定画面への遷移ボタン
         this.addRenderableWidget(Button.builder(
                 Component.translatable("taczindicator.stats.gui.config_btn"),
                 btn -> {
@@ -72,7 +106,7 @@ public class CombatStatsScreen extends Screen {
                 }
         ).bounds(centerX + 5, bottomY, btnWidth, 20).build());
 
-        // 4. 閉じるボタン
+        // 5. 閉じるボタン
         this.addRenderableWidget(Button.builder(
                 Component.translatable("gui.done"),
                 btn -> this.onClose()
@@ -88,28 +122,35 @@ public class CombatStatsScreen extends Screen {
         CombatStatsManager stats = CombatStatsManager.getInstance();
 
         // 1. タイトルヘッダー
-        guiGraphics.drawCenteredString(this.font, "§b§l" + this.title.getString(), centerX, 8, 0x00F0FF);
+        guiGraphics.drawCenteredString(this.font, "§b§l" + this.title.getString(), centerX, 6, 0x00F0FF);
 
         // フィードバックトースト通知
         if (!this.feedbackMessage.isEmpty() && (System.currentTimeMillis() - this.feedbackTimeMs) < 2500L) {
-            guiGraphics.drawCenteredString(this.font, "§a§l✔ " + this.feedbackMessage, centerX, 20, 0x55FF55);
-        } else {
-            guiGraphics.drawCenteredString(this.font, "§7" + Component.translatable("taczindicator.stats.gui.subtitle").getString(), centerX, 20, 0x888888);
+            guiGraphics.drawCenteredString(this.font, "§a§l✔ " + this.feedbackMessage, centerX, 18, 0x55FF55);
         }
 
-        // 2. 統計カードグリッド (2列 x 2行)
         int marginX = 14;
+        int logWidth = this.width - (marginX * 2);
+
+        switch (this.currentTab) {
+            case OVERVIEW -> renderOverviewTab(guiGraphics, stats, marginX, logWidth);
+            case WEAPONS -> renderWeaponsTab(guiGraphics, stats, marginX, logWidth);
+            case KILL_LOGS -> renderKillLogsTab(guiGraphics, stats, marginX, logWidth);
+        }
+    }
+
+    private void renderOverviewTab(GuiGraphics guiGraphics, CombatStatsManager stats, int marginX, int logWidth) {
         int cardGap = 8;
         int cardWidth = (this.width - (marginX * 2) - cardGap) / 2;
-        int cardHeight = 52;
-        int topRowY = 32;
-        int bottomRowY = topRowY + cardHeight + cardGap;
+        int cardHeight = 48;
+        int topRowY = 44;
+        int bottomRowY = topRowY + cardHeight + 6;
 
         // Card 1: ダメージ & DPS分析 (左上)
         renderCard(guiGraphics, marginX, topRowY, cardWidth, cardHeight, "§6§l[ ⚔ ダメージ & DPS分析 ]", new String[]{
                 String.format(Locale.ROOT, "§f総与ダメージ: §a%,.1f", stats.getTotalDamage()),
-                String.format(Locale.ROOT, "§f瞬間DPS (直近3秒): §e%.1f", stats.getDPS()),
-                String.format(Locale.ROOT, "§fピークDPS: §6%.1f §7| §f平均: §e%.1f", stats.getPeakDps(), stats.getAverageDPS())
+                String.format(Locale.ROOT, "§f瞬間DPS (3秒): §e%.1f §7| §fピーク: §6%.1f", stats.getDPS(), stats.getPeakDps()),
+                String.format(Locale.ROOT, "§f平均DPS: §e%.1f", stats.getAverageDPS())
         });
 
         // Card 2: 命中 & 射撃分析 (右上)
@@ -134,21 +175,96 @@ public class CombatStatsScreen extends Screen {
                 String.format(Locale.ROOT, "§f平均キル距離: §7%.1f m", stats.getAverageKillDistance())
         });
 
-        // 3. 戦闘ログ履歴エリア (Combat Log Area)
-        int logStartY = bottomRowY + cardHeight + 8;
-        int logHeight = (this.height - 30) - logStartY;
-        int logWidth = this.width - (marginX * 2);
+        // 下部: キルログ抜粋プレビュー
+        int logStartY = bottomRowY + cardHeight + 6;
+        int logHeight = (this.height - 28) - logStartY;
 
-        // ログ外枠と背景
         guiGraphics.fill(marginX, logStartY, marginX + logWidth, logStartY + logHeight, 0x88101520);
         guiGraphics.renderOutline(marginX, logStartY, logWidth, logHeight, 0xAA00A0E9);
-
-        // ログヘッダー
         guiGraphics.drawString(this.font, "§c§l" + Component.translatable("taczindicator.stats.gui.kill_logs_title").getString(), marginX + 6, logStartY + 4, 0xFF5555, false);
 
         List<CombatStatsManager.CombatLogEntry> logs = stats.getCombatLogs();
-        int visibleLines = (logHeight - 16) / 10;
+        int visibleLines = Math.max(1, (logHeight - 16) / 10);
         int contentY = logStartY + 16;
+
+        if (logs.isEmpty()) {
+            guiGraphics.drawString(this.font, "§7" + Component.translatable("taczindicator.stats.gui.no_kill_logs").getString(), marginX + 10, contentY + 4, 0x777777, false);
+        } else {
+            int endIndex = Math.min(logs.size(), visibleLines);
+            for (int i = 0; i < endIndex; i++) {
+                CombatStatsManager.CombatLogEntry entry = logs.get(i);
+                int lineY = contentY + i * 10;
+                String timePrefix = "§8[" + entry.getTimeFormatted() + "] ";
+                guiGraphics.drawString(this.font, timePrefix + entry.getMessage(), marginX + 8, lineY, 0xFFFFFF, false);
+            }
+        }
+    }
+
+    private void renderWeaponsTab(GuiGraphics guiGraphics, CombatStatsManager stats, int marginX, int logWidth) {
+        int listStartY = 44;
+        int listHeight = (this.height - 28) - listStartY;
+
+        guiGraphics.fill(marginX, listStartY, marginX + logWidth, listStartY + listHeight, 0x88101520);
+        guiGraphics.renderOutline(marginX, listStartY, logWidth, listHeight, 0xAA00A0E9);
+
+        guiGraphics.drawString(this.font, "§6§l" + Component.translatable("taczindicator.stats.gui.weapon_breakdown_title").getString(), marginX + 6, listStartY + 4, 0xFFAA00, false);
+
+        List<CombatStatsManager.WeaponStatEntry> weapons = stats.getWeaponBreakdownList();
+        int contentY = listStartY + 16;
+
+        if (weapons.isEmpty()) {
+            guiGraphics.drawString(this.font, "§7" + Component.translatable("taczindicator.stats.gui.no_weapon_stats").getString(), marginX + 10, contentY + 8, 0x777777, false);
+            return;
+        }
+
+        int cardItemHeight = 36;
+        int visibleCards = Math.max(1, (listHeight - 18) / cardItemHeight);
+        int startIndex = Math.max(0, Math.min(this.scrollOffset, Math.max(0, weapons.size() - visibleCards)));
+        int endIndex = Math.min(weapons.size(), startIndex + visibleCards);
+
+        for (int i = startIndex; i < endIndex; i++) {
+            CombatStatsManager.WeaponStatEntry w = weapons.get(i);
+            int cardY = contentY + (i - startIndex) * cardItemHeight;
+
+            // 各武器の個別カード背景
+            guiGraphics.fill(marginX + 4, cardY, marginX + logWidth - 4, cardY + cardItemHeight - 2, 0x55182030);
+            guiGraphics.renderOutline(marginX + 4, cardY, logWidth - 8, cardItemHeight - 2, 0x6600A0E9);
+
+            // 行1: 武器名 & ダメージ & キル
+            String line1 = String.format(Locale.ROOT, "§e§l[ 🔫 %s ]  §f総ダメージ: §a%,.1f §7| §fキル数: §c%d 体",
+                    w.getWeaponName(), w.getTotalDamage(), w.getTotalKills());
+            guiGraphics.drawString(this.font, line1, marginX + 8, cardY + 3, 0xFFFFFF, false);
+
+            // 行2: 命中数、HS率、AP
+            String line2 = String.format(Locale.ROOT, "§f命中数: §b%d 発 §7(§c☠ HS: %d発 / %.1f%%§7) §7| §6★ Crit: %d §7| §f\uE002 AP: %d",
+                    w.getTotalHits(), w.getTotalHeadshots(), w.getHeadshotRate(), w.getTotalCriticals(), w.getTotalArmorPiercing());
+            guiGraphics.drawString(this.font, line2, marginX + 12, cardY + 14, 0xDDDDDD, false);
+
+            // 行3: 最大単発 & 最長キル
+            String line3 = String.format(Locale.ROOT, "§7最大単発: §d%.1f dmg §7| 最長キル距離: §e%d m",
+                    w.getMaxSingleDamage(), w.getMaxKillDistance());
+            guiGraphics.drawString(this.font, line3, marginX + 12, cardY + 24, 0xAAAAAA, false);
+        }
+
+        // スクロールインジケータ
+        if (weapons.size() > visibleCards) {
+            String scrollInfo = String.format(Locale.ROOT, "§8%d-%d / %d", startIndex + 1, endIndex, weapons.size());
+            guiGraphics.drawString(this.font, scrollInfo, marginX + logWidth - this.font.width(scrollInfo) - 6, listStartY + 4, 0x888888, false);
+        }
+    }
+
+    private void renderKillLogsTab(GuiGraphics guiGraphics, CombatStatsManager stats, int marginX, int logWidth) {
+        int listStartY = 44;
+        int listHeight = (this.height - 28) - listStartY;
+
+        guiGraphics.fill(marginX, listStartY, marginX + logWidth, listStartY + listHeight, 0x88101520);
+        guiGraphics.renderOutline(marginX, listStartY, logWidth, listHeight, 0xAA00A0E9);
+
+        guiGraphics.drawString(this.font, "§c§l" + Component.translatable("taczindicator.stats.gui.kill_logs_title").getString(), marginX + 6, listStartY + 4, 0xFF5555, false);
+
+        List<CombatStatsManager.CombatLogEntry> logs = stats.getCombatLogs();
+        int visibleLines = Math.max(1, (listHeight - 16) / 10);
+        int contentY = listStartY + 16;
 
         if (logs.isEmpty()) {
             guiGraphics.drawString(this.font, "§7" + Component.translatable("taczindicator.stats.gui.no_kill_logs").getString(), marginX + 10, contentY + 6, 0x777777, false);
@@ -163,10 +279,9 @@ public class CombatStatsScreen extends Screen {
                 guiGraphics.drawString(this.font, timePrefix + entry.getMessage(), marginX + 8, lineY, 0xFFFFFF, false);
             }
 
-            // スクロールインジケータ
             if (logs.size() > visibleLines) {
                 String scrollInfo = String.format(Locale.ROOT, "§8%d-%d / %d", startIndex + 1, endIndex, logs.size());
-                guiGraphics.drawString(this.font, scrollInfo, marginX + logWidth - this.font.width(scrollInfo) - 6, logStartY + 4, 0x888888, false);
+                guiGraphics.drawString(this.font, scrollInfo, marginX + logWidth - this.font.width(scrollInfo) - 6, listStartY + 4, 0x888888, false);
             }
         }
     }
@@ -177,7 +292,7 @@ public class CombatStatsScreen extends Screen {
 
         guiGraphics.drawString(this.font, header, x + 6, y + 4, 0xFFFFFF, false);
         for (int i = 0; i < lines.length; i++) {
-            guiGraphics.drawString(this.font, lines[i], x + 8, y + 15 + (i * 11), 0xEEEEEE, false);
+            guiGraphics.drawString(this.font, lines[i], x + 8, y + 15 + (i * 10), 0xEEEEEE, false);
         }
     }
 

@@ -51,12 +51,18 @@
   "taczindicator.gui.combat_stats_position": "DPS Pos: %s",
   "taczindicator.gui.reset_stats_btn": "Reset Stats",
 
+  "taczindicator.stats.tab.overview": "Overview",
+  "taczindicator.stats.tab.weapons": "Weapons",
+  "taczindicator.stats.tab.kill_logs": "Kill Logs",
+
   "taczindicator.stats.gui.title": "Detailed Combat Statistics",
-  "taczindicator.stats.gui.subtitle": "Session combat metrics, DPS analysis & kill history",
+  "taczindicator.stats.gui.subtitle": "Session combat metrics, DPS analysis, weapon breakdown & kill history",
   "taczindicator.stats.gui.copy_btn": "📋 Copy Stats",
   "taczindicator.stats.gui.copied_feedback": "Copied to clipboard!",
   "taczindicator.stats.gui.reset_feedback": "Combat stats reset!",
   "taczindicator.stats.gui.config_btn": "⚙ Settings",
+  "taczindicator.stats.gui.weapon_breakdown_title": "[ Weapon Breakdown Statistics ]",
+  "taczindicator.stats.gui.no_weapon_stats": "No weapon combat stats recorded yet",
   "taczindicator.stats.gui.kill_logs_title": "[ Kill History (Last 50) ]",
   "taczindicator.stats.gui.no_kill_logs": "No kills recorded yet",
 

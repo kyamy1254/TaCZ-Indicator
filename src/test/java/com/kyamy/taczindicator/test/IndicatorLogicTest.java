@@ -512,6 +512,89 @@ public class IndicatorLogicTest {
         }
     }
 
+    @Test
+    @DisplayName("武器別キル・ダメージ統計 (Weapon Breakdown) の集計とソート検証")
+    void testWeaponBreakdownTracking() {
+        com.kyamy.taczindicator.client.stats.CombatStatsManager manager = com.kyamy.taczindicator.client.stats.CombatStatsManager.getInstance();
+        manager.resetStats();
+
+        // 1. AK-47での射撃 (1発目: 通常 40.0, 2発目: HSキル 90.0 at 50m)
+        manager.recordDamage(40.0f, false, false, true, false, false, false, "Zombie", 0, "AK-47");
+        manager.recordDamage(90.0f, true, false, true, false, false, true, "Zombie", 50, "AK-47");
+
+        // 2. AWPでの狙撃 (1発目: HSキル 250.0 at 150m)
+        manager.recordDamage(250.0f, true, false, true, false, false, true, "Skeleton", 150, "AWP");
+
+        // 3. ダイヤの剣での近接攻撃 (1発目: クリティカル 15.0)
+        manager.recordDamage(15.0f, false, true, false, false, false, false, "Creeper", 2, "Diamond Sword");
+
+        // 武器別リストの取得（ダメージ降順でソートされていること）
+        List<com.kyamy.taczindicator.client.stats.CombatStatsManager.WeaponStatEntry> weapons = manager.getWeaponBreakdownList();
+        assertEquals(3, weapons.size());
+
+        // 1位: AWP (250.0 dmg)
+        assertEquals("AWP", weapons.get(0).getWeaponName());
+        assertEquals(250.0, weapons.get(0).getTotalDamage(), 1e-4);
+        assertEquals(1, weapons.get(0).getTotalHits());
+        assertEquals(1, weapons.get(0).getTotalHeadshots());
+        assertEquals(100.0f, weapons.get(0).getHeadshotRate(), 1e-4);
+        assertEquals(1, weapons.get(0).getTotalKills());
+        assertEquals(150, weapons.get(0).getMaxKillDistance());
+
+        // 2位: AK-47 (130.0 dmg)
+        assertEquals("AK-47", weapons.get(1).getWeaponName());
+        assertEquals(130.0, weapons.get(1).getTotalDamage(), 1e-4);
+        assertEquals(2, weapons.get(1).getTotalHits());
+        assertEquals(1, weapons.get(1).getTotalHeadshots());
+        assertEquals(50.0f, weapons.get(1).getHeadshotRate(), 1e-4);
+        assertEquals(1, weapons.get(1).getTotalKills());
+        assertEquals(50, weapons.get(1).getMaxKillDistance());
+
+        // 3位: Diamond Sword (15.0 dmg)
+        assertEquals("Diamond Sword", weapons.get(2).getWeaponName());
+        assertEquals(15.0, weapons.get(2).getTotalDamage(), 1e-4);
+        assertEquals(1, weapons.get(2).getTotalHits());
+        assertEquals(1, weapons.get(2).getTotalCriticals());
+        assertEquals(0, weapons.get(2).getTotalKills());
+
+        // レポート生成に武器別セクションが含まれること
+        String report = manager.generateStatsReportText();
+        assertTrue(report.contains("武器別統計 (Weapon Breakdown)"));
+        assertTrue(report.contains("[AWP]"));
+        assertTrue(report.contains("[AK-47]"));
+        assertTrue(report.contains("[Diamond Sword]"));
+
+        // リセット
+        manager.resetStats();
+        assertEquals(0, manager.getWeaponBreakdownList().size());
+    }
+
+    @Test
+    @DisplayName("銃器ID・武器名フォーマットの検証")
+    void testGunNameFormatting() {
+        assertEquals("AK-47", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:ak47"));
+        assertEquals("M4A1", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:m4a1"));
+        assertEquals("AWP", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("awp"));
+        assertEquals("G36C", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:hk_g36c"));
+        assertEquals("Desert Eagle", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("deagle"));
+        assertEquals("Kriss Vector", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("vector"));
+        assertEquals("Custom Rifle", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("custom_rifle"));
+    }
+
+    @Test
+    @DisplayName("キル通知の武器名表示フォーマット検証")
+    void testKillAlertWithWeaponName() {
+        KillAlertInstance alert = new KillAlertInstance("Zombie", 100, "AK-47");
+        assertTrue(alert.getFormattedText().contains("[AK-47]"));
+        assertTrue(alert.getFormattedText().contains("[100m]"));
+
+        // 武器名更新
+        alert.updateKill(45, "M4A1");
+        assertEquals(2, alert.getKillCount());
+        assertTrue(alert.getFormattedText().contains("[M4A1]"));
+        assertTrue(alert.getFormattedText().contains("[45m]"));
+    }
+
     private float calculateAlpha(int ageTicks, int maxLifetime) {
         float progress = (float) ageTicks / (float) maxLifetime;
         if (progress > 0.7f) {

@@ -79,6 +79,7 @@ public class DamageEventHandler {
         boolean isHeadshot = (taczHit != null && isHeadshotFromRecord(taczHit));
         boolean isCritical = isCriticalDamage(attackingPlayer, event.getSource(), directEntity, isTaCZ);
         boolean isArmorPiercing = (taczHit != null && taczHit.isArmorPiercing()) || isArmorPiercingDamage(event.getSource(), directEntity);
+        String weaponName = resolveWeaponName(attackingPlayer, taczHit, event.getSource(), directEntity);
 
         DamageIndicatorPacket packet = new DamageIndicatorPacket(
                 victim.getId(),
@@ -91,12 +92,13 @@ public class DamageEventHandler {
                 false,
                 true,
                 victimName,
-                distanceMeters
+                distanceMeters,
+                weaponName
         );
 
         ModMessages.sendToPlayer(packet, attackingPlayer);
-        TaCZIndicatorMod.LOGGER.debug("Sent kill packet: victim={}, player={}, dist={}m, HS={}, Crit={}, AP={}, TaCZ={}",
-                victimName, attackingPlayer.getName().getString(), distanceMeters, isHeadshot, isCritical, isArmorPiercing, isTaCZ);
+        TaCZIndicatorMod.LOGGER.debug("Sent kill packet: victim={}, player={}, dist={}m, weapon={}, HS={}, Crit={}, AP={}, TaCZ={}",
+                victimName, attackingPlayer.getName().getString(), distanceMeters, weaponName, isHeadshot, isCritical, isArmorPiercing, isTaCZ);
     }
 
     private static void handleDamage(LivingEntity victim, DamageSource source, float damage) {
@@ -127,6 +129,7 @@ public class DamageEventHandler {
         boolean hitArmor = victim.getArmorValue() > 0;
         String victimName = victim.getDisplayName().getString();
         int distanceMeters = (int) Math.round(attackingPlayer.position().distanceTo(victim.position()));
+        String weaponName = resolveWeaponName(attackingPlayer, taczHit, source, directEntity);
 
         Vec3 eyePos = victim.getEyePosition();
         double posX = eyePos.x;
@@ -144,12 +147,64 @@ public class DamageEventHandler {
                 hitArmor,
                 false,
                 victimName,
-                distanceMeters
+                distanceMeters,
+                weaponName
         );
 
         ModMessages.sendToPlayer(packet, attackingPlayer);
-        TaCZIndicatorMod.LOGGER.debug("Sent damage packet: victim={}, dmg={}, HS={}, Crit={}, AP={}, TaCZ={}, dist={}m, player={}",
-                victim.getId(), damage, isHeadshot, isCritical, isArmorPiercing, isTaCZ, distanceMeters, attackingPlayer.getName().getString());
+        TaCZIndicatorMod.LOGGER.debug("Sent damage packet: victim={}, dmg={}, weapon={}, HS={}, Crit={}, AP={}, TaCZ={}, dist={}m, player={}",
+                victim.getId(), damage, weaponName, isHeadshot, isCritical, isArmorPiercing, isTaCZ, distanceMeters, attackingPlayer.getName().getString());
+    }
+
+    public static String resolveWeaponName(ServerPlayer attackingPlayer, TaCZCompatHandler.TaCZHitRecord taczHit, DamageSource source, Entity directEntity) {
+        if (taczHit != null && taczHit.gunId() != null && !taczHit.gunId().isBlank()) {
+            String formatted = formatGunName(taczHit.gunId());
+            if (!formatted.isEmpty()) {
+                return formatted;
+            }
+        }
+        if (attackingPlayer != null) {
+            net.minecraft.world.item.ItemStack mainHand = attackingPlayer.getMainHandItem();
+            if (mainHand != null && !mainHand.isEmpty()) {
+                String name = mainHand.getHoverName().getString();
+                if (name != null && !name.isBlank()) {
+                    return name;
+                }
+            }
+        }
+        if (directEntity != null && directEntity != attackingPlayer) {
+            return directEntity.getDisplayName().getString();
+        }
+        return "Melee";
+    }
+
+    public static String formatGunName(String gunId) {
+        if (gunId == null || gunId.isBlank()) return "";
+        if (gunId.contains(":")) {
+            gunId = gunId.substring(gunId.indexOf(':') + 1);
+        }
+        gunId = gunId.replace('_', ' ').trim();
+        if (gunId.equalsIgnoreCase("ak47")) return "AK-47";
+        if (gunId.equalsIgnoreCase("m4a1")) return "M4A1";
+        if (gunId.equalsIgnoreCase("awp")) return "AWP";
+        if (gunId.equalsIgnoreCase("rpk")) return "RPK";
+        if (gunId.equalsIgnoreCase("hk g36c") || gunId.equalsIgnoreCase("g36c")) return "G36C";
+        if (gunId.equalsIgnoreCase("m82a1")) return "M82A1";
+        if (gunId.equalsIgnoreCase("deagle") || gunId.equalsIgnoreCase("desert eagle")) return "Desert Eagle";
+        if (gunId.equalsIgnoreCase("glock 17") || gunId.equalsIgnoreCase("glock17")) return "Glock 17";
+        if (gunId.equalsIgnoreCase("mp5")) return "MP5";
+        if (gunId.equalsIgnoreCase("vector")) return "Kriss Vector";
+        if (gunId.equalsIgnoreCase("p90")) return "P90";
+
+        // 各単語の先頭を大文字化
+        String[] parts = gunId.split("\\s+");
+        StringBuilder sb = new StringBuilder();
+        for (String part : parts) {
+            if (!part.isEmpty()) {
+                sb.append(Character.toUpperCase(part.charAt(0))).append(part.substring(1)).append(" ");
+            }
+        }
+        return sb.toString().trim();
     }
 
     private static boolean isHeadshotFromRecord(TaCZCompatHandler.TaCZHitRecord record) {

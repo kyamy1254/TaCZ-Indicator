@@ -6,12 +6,14 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * クライアント側詳細戦闘統計・DPSマネージャー
- * 瞬間DPS（3秒スライディングウィンドウ）、ピークDPS、平均DPS、最大単発ダメージ、命中分析、キル距離、および戦闘ログ履歴を総合管理
+ * 瞬間DPS（3秒スライディングウィンドウ）、ピークDPS、平均DPS、最大単発ダメージ、命中分析、キル距離、武器別統計、および戦闘ログ履歴を総合管理
  */
 public class CombatStatsManager {
     private static final CombatStatsManager INSTANCE = new CombatStatsManager();
@@ -39,8 +41,9 @@ public class CombatStatsManager {
         private final boolean isHeadshot;
         private final boolean isCritical;
         private final boolean isArmorPiercing;
+        private final String weaponName;
 
-        public CombatLogEntry(long timestampMs, String message, float damage, boolean isKill, boolean isHeadshot, boolean isCritical, boolean isArmorPiercing) {
+        public CombatLogEntry(long timestampMs, String message, float damage, boolean isKill, boolean isHeadshot, boolean isCritical, boolean isArmorPiercing, String weaponName) {
             this.timestampMs = timestampMs;
             this.timeFormatted = new SimpleDateFormat("HH:mm:ss", Locale.ROOT).format(new Date(timestampMs));
             this.message = message;
@@ -49,6 +52,7 @@ public class CombatStatsManager {
             this.isHeadshot = isHeadshot;
             this.isCritical = isCritical;
             this.isArmorPiercing = isArmorPiercing;
+            this.weaponName = weaponName != null ? weaponName : "";
         }
 
         public long getTimestampMs() { return timestampMs; }
@@ -59,6 +63,73 @@ public class CombatStatsManager {
         public boolean isHeadshot() { return isHeadshot; }
         public boolean isCritical() { return isCritical; }
         public boolean isArmorPiercing() { return isArmorPiercing; }
+        public String getWeaponName() { return weaponName; }
+    }
+
+    public static class WeaponStatEntry {
+        private final String weaponName;
+        private double totalDamage = 0.0;
+        private int totalHits = 0;
+        private int totalHeadshots = 0;
+        private int totalCriticals = 0;
+        private int totalArmorPiercing = 0;
+        private int totalArmorDamage = 0;
+        private int totalKills = 0;
+        private float maxSingleDamage = 0.0f;
+        private int maxKillDistance = 0;
+
+        public WeaponStatEntry(String weaponName) {
+            this.weaponName = weaponName;
+        }
+
+        public synchronized void recordHit(float damage, boolean isHeadshot, boolean isCritical, boolean isArmorPiercing, boolean hitArmor, boolean isKill, int distanceMeters) {
+            this.totalDamage += damage;
+            this.totalHits++;
+            if (isHeadshot) this.totalHeadshots++;
+            if (isCritical) this.totalCriticals++;
+            if (isArmorPiercing) this.totalArmorPiercing++;
+            if (hitArmor) this.totalArmorDamage++;
+            if (damage > this.maxSingleDamage) {
+                this.maxSingleDamage = damage;
+            }
+            if (isKill) {
+                this.totalKills++;
+                if (distanceMeters > this.maxKillDistance) {
+                    this.maxKillDistance = distanceMeters;
+                }
+            }
+        }
+
+        public synchronized void recordKillOnly(int distanceMeters, boolean isHeadshot, boolean isCritical, boolean isArmorPiercing) {
+            this.totalKills++;
+            if (isHeadshot) this.totalHeadshots++;
+            if (isCritical) this.totalCriticals++;
+            if (isArmorPiercing) this.totalArmorPiercing++;
+            if (distanceMeters > this.maxKillDistance) {
+                this.maxKillDistance = distanceMeters;
+            }
+        }
+
+        public String getWeaponName() { return weaponName; }
+        public double getTotalDamage() { return totalDamage; }
+        public int getTotalHits() { return totalHits; }
+        public int getTotalHeadshots() { return totalHeadshots; }
+        public int getTotalCriticals() { return totalCriticals; }
+        public int getTotalArmorPiercing() { return totalArmorPiercing; }
+        public int getTotalArmorDamage() { return totalArmorDamage; }
+        public int getTotalKills() { return totalKills; }
+        public float getMaxSingleDamage() { return maxSingleDamage; }
+        public int getMaxKillDistance() { return maxKillDistance; }
+
+        public float getHeadshotRate() {
+            if (this.totalHits <= 0) return 0.0f;
+            return ((float) this.totalHeadshots / (float) this.totalHits) * 100.0f;
+        }
+
+        public float getCriticalRate() {
+            if (this.totalHits <= 0) return 0.0f;
+            return ((float) this.totalCriticals / (float) this.totalHits) * 100.0f;
+        }
     }
 
     private double totalDamage = 0.0;
@@ -80,6 +151,7 @@ public class CombatStatsManager {
 
     private final List<DamageEntry> damageWindow = new ArrayList<>();
     private final List<CombatLogEntry> combatLogs = new ArrayList<>();
+    private final Map<String, WeaponStatEntry> weaponStats = new LinkedHashMap<>();
 
     private static final long WINDOW_MS = 3000L; // 直近3秒間
     private static final long COMBAT_TIMEOUT_MS = 5000L; // 非戦闘移行5秒
@@ -92,7 +164,7 @@ public class CombatStatsManager {
      */
     public synchronized void recordDamage(float damage, boolean isHeadshot, boolean isCritical, boolean isTaCZ,
                                          boolean isArmorPiercing, boolean hitArmor, boolean isKill,
-                                         String victimName, int distanceMeters) {
+                                         String victimName, int distanceMeters, String weaponName) {
         long now = System.currentTimeMillis();
 
         if (this.firstCombatTimeMs == 0L) {
@@ -129,6 +201,11 @@ public class CombatStatsManager {
             }
         }
 
+        // 武器別統計の記録
+        String validWeapon = (weaponName != null && !weaponName.isBlank()) ? weaponName : (isTaCZ ? "TaCZ Gun" : "Melee");
+        this.weaponStats.computeIfAbsent(validWeapon, WeaponStatEntry::new)
+                .recordHit(damage, isHeadshot, isCritical, isArmorPiercing, hitArmor, isKill, distanceMeters);
+
         this.lastDamageTimeMs = now;
         cleanOldEntries(now);
         this.damageWindow.add(new DamageEntry(now, damage));
@@ -144,6 +221,9 @@ public class CombatStatsManager {
             String targetStr = (victimName != null && !victimName.isEmpty()) ? victimName : "Target";
             StringBuilder logMsg = new StringBuilder();
             logMsg.append("§c☠ Killed ").append(targetStr);
+            if (!validWeapon.isBlank() && !validWeapon.equalsIgnoreCase("Melee")) {
+                logMsg.append(" §6[").append(validWeapon).append("]");
+            }
             if (distanceMeters > 0) {
                 logMsg.append(" §7[").append(distanceMeters).append("m]");
             }
@@ -154,22 +234,24 @@ public class CombatStatsManager {
             else if (isCritical) logMsg.append(" §6[Crit ★]");
             if (isArmorPiercing) logMsg.append(" §f[AP \uE002]");
 
-            this.combatLogs.add(0, new CombatLogEntry(now, logMsg.toString(), damage, true, isHeadshot, isCritical, isArmorPiercing));
+            this.combatLogs.add(0, new CombatLogEntry(now, logMsg.toString(), damage, true, isHeadshot, isCritical, isArmorPiercing, validWeapon));
             if (this.combatLogs.size() > MAX_LOGS) {
                 this.combatLogs.remove(this.combatLogs.size() - 1);
             }
         }
     }
 
+    public synchronized void recordDamage(float damage, boolean isHeadshot, boolean isCritical, boolean isTaCZ,
+                                         boolean isArmorPiercing, boolean hitArmor, boolean isKill,
+                                         String victimName, int distanceMeters) {
+        recordDamage(damage, isHeadshot, isCritical, isTaCZ, isArmorPiercing, hitArmor, isKill, victimName, distanceMeters, "");
+    }
+
     public synchronized void recordDamage(float damage, boolean isHeadshot, boolean isKill) {
-        recordDamage(damage, isHeadshot, false, false, false, false, isKill, "", 0);
+        recordDamage(damage, isHeadshot, false, false, false, false, isKill, "", 0, "");
     }
 
-    public synchronized void recordKill(String victimName, int distanceMeters) {
-        recordKill(victimName, distanceMeters, false, false, false);
-    }
-
-    public synchronized void recordKill(String victimName, int distanceMeters, boolean isHeadshot, boolean isCritical, boolean isArmorPiercing) {
+    public synchronized void recordKill(String victimName, int distanceMeters, boolean isHeadshot, boolean isCritical, boolean isArmorPiercing, String weaponName) {
         this.totalKills++;
         long now = System.currentTimeMillis();
         this.lastDamageTimeMs = now;
@@ -179,9 +261,16 @@ public class CombatStatsManager {
         if (distanceMeters > 0) {
             this.totalKillDistance += distanceMeters;
         }
+        String validWeapon = (weaponName != null && !weaponName.isBlank()) ? weaponName : "Melee";
+        this.weaponStats.computeIfAbsent(validWeapon, WeaponStatEntry::new)
+                .recordKillOnly(distanceMeters, isHeadshot, isCritical, isArmorPiercing);
+
         String targetStr = (victimName != null && !victimName.isEmpty()) ? victimName : "Target";
         StringBuilder logMsg = new StringBuilder();
         logMsg.append("§c☠ Killed ").append(targetStr);
+        if (!validWeapon.isBlank() && !validWeapon.equalsIgnoreCase("Melee")) {
+            logMsg.append(" §6[").append(validWeapon).append("]");
+        }
         if (distanceMeters > 0) {
             logMsg.append(" §7[").append(distanceMeters).append("m]");
         }
@@ -189,14 +278,22 @@ public class CombatStatsManager {
         else if (isCritical) logMsg.append(" §6[Crit ★]");
         if (isArmorPiercing) logMsg.append(" §f[AP \uE002]");
 
-        this.combatLogs.add(0, new CombatLogEntry(now, logMsg.toString(), 0.0f, true, isHeadshot, isCritical, isArmorPiercing));
+        this.combatLogs.add(0, new CombatLogEntry(now, logMsg.toString(), 0.0f, true, isHeadshot, isCritical, isArmorPiercing, validWeapon));
         if (this.combatLogs.size() > MAX_LOGS) {
             this.combatLogs.remove(this.combatLogs.size() - 1);
         }
     }
 
+    public synchronized void recordKill(String victimName, int distanceMeters, boolean isHeadshot, boolean isCritical, boolean isArmorPiercing) {
+        recordKill(victimName, distanceMeters, isHeadshot, isCritical, isArmorPiercing, "");
+    }
+
+    public synchronized void recordKill(String victimName, int distanceMeters) {
+        recordKill(victimName, distanceMeters, false, false, false, "");
+    }
+
     public synchronized void recordKill() {
-        recordKill("", 0, false, false, false);
+        recordKill("", 0, false, false, false, "");
     }
 
     private void cleanOldEntries(long now) {
@@ -264,6 +361,15 @@ public class CombatStatsManager {
         return Collections.unmodifiableList(new ArrayList<>(this.combatLogs));
     }
 
+    /**
+     * 武器別統計リストを取得（総ダメージ降順）
+     */
+    public synchronized List<WeaponStatEntry> getWeaponBreakdownList() {
+        List<WeaponStatEntry> list = new ArrayList<>(this.weaponStats.values());
+        list.sort((a, b) -> Double.compare(b.getTotalDamage(), a.getTotalDamage()));
+        return Collections.unmodifiableList(list);
+    }
+
     public synchronized boolean isInCombat() {
         return (System.currentTimeMillis() - this.lastDamageTimeMs) < COMBAT_TIMEOUT_MS;
     }
@@ -309,6 +415,18 @@ public class CombatStatsManager {
         sb.append(String.format(Locale.ROOT, "最長キル距離: %d m / 平均キル距離: %.1f m\n", maxKillDistance, getAverageKillDistance()));
         long sec = totalCombatActiveMs / 1000L;
         sb.append(String.format(Locale.ROOT, "実戦闘時間: %02d:%02d\n", sec / 60, sec % 60));
+
+        List<WeaponStatEntry> weapons = getWeaponBreakdownList();
+        if (!weapons.isEmpty()) {
+            sb.append("----------------------------------------\n");
+            sb.append("       武器別統計 (Weapon Breakdown)     \n");
+            sb.append("----------------------------------------\n");
+            for (WeaponStatEntry w : weapons) {
+                sb.append(String.format(Locale.ROOT, "[%s] ダメージ: %,.1f | 命中: %d発 (HS: %.1f%%) | Kills: %d体 | 最長: %dm\n",
+                        w.getWeaponName(), w.getTotalDamage(), w.getTotalHits(), w.getHeadshotRate(), w.getTotalKills(), w.getMaxKillDistance()));
+            }
+        }
+
         sb.append("========================================\n");
         return sb.toString();
     }
@@ -333,5 +451,6 @@ public class CombatStatsManager {
         this.lastDamageTimeMs = 0L;
         this.damageWindow.clear();
         this.combatLogs.clear();
+        this.weaponStats.clear();
     }
 }

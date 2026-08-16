@@ -73,7 +73,7 @@ public class ClientDamageHandler {
     public static void handlePacket(int entityId, double x, double y, double z, float damage,
                                     boolean isHeadshot, boolean isCritical, boolean isTaCZ,
                                     boolean isArmorPiercing, boolean hitArmor, boolean isKill, String victimName,
-                                    int distanceMeters) {
+                                    int distanceMeters, String weaponName) {
         if (!serverPacketReceived) {
             serverPacketReceived = true;
             currentOperatingMode = OperatingMode.SERVER_SYNCED;
@@ -90,7 +90,7 @@ public class ClientDamageHandler {
             DamageIndicatorManager.getInstance().addIndicator(entityId, x, y, z, damage, isHeadshot, isCritical, isTaCZ, isArmorPiercing, hitArmor);
             // 詳細戦闘統計の記録
             com.kyamy.taczindicator.client.stats.CombatStatsManager.getInstance().recordDamage(
-                    damage, isHeadshot, isCritical, isTaCZ, isArmorPiercing, hitArmor, isKill, victimName, distanceMeters
+                    damage, isHeadshot, isCritical, isTaCZ, isArmorPiercing, hitArmor, isKill, victimName, distanceMeters, weaponName
             );
             // ヒットサウンド再生
             SoundHelper.playHitSound(isHeadshot, isArmorPiercing, hitArmor);
@@ -100,11 +100,11 @@ public class ClientDamageHandler {
             if (damage <= 0.001f) {
                 // ダメージ0のキル専用パケットの場合にキル記録
                 com.kyamy.taczindicator.client.stats.CombatStatsManager.getInstance().recordKill(
-                        victimName, distanceMeters, isHeadshot, isCritical, isArmorPiercing
+                        victimName, distanceMeters, isHeadshot, isCritical, isArmorPiercing, weaponName
                 );
             }
             if (IndicatorConfig.isShowKillAlert()) {
-                DamageIndicatorManager.getInstance().addKillAlert(victimName, distanceMeters);
+                DamageIndicatorManager.getInstance().addKillAlert(victimName, distanceMeters, weaponName);
             }
             // キル確定サウンド再生
             SoundHelper.playKillSound();
@@ -113,12 +113,19 @@ public class ClientDamageHandler {
 
     public static void handlePacket(int entityId, double x, double y, double z, float damage,
                                     boolean isHeadshot, boolean isCritical, boolean isTaCZ,
+                                    boolean isArmorPiercing, boolean hitArmor, boolean isKill, String victimName,
+                                    int distanceMeters) {
+        handlePacket(entityId, x, y, z, damage, isHeadshot, isCritical, isTaCZ, isArmorPiercing, hitArmor, isKill, victimName, distanceMeters, "");
+    }
+
+    public static void handlePacket(int entityId, double x, double y, double z, float damage,
+                                    boolean isHeadshot, boolean isCritical, boolean isTaCZ,
                                     boolean isArmorPiercing, boolean hitArmor, boolean isKill, String victimName) {
-        handlePacket(entityId, x, y, z, damage, isHeadshot, isCritical, isTaCZ, isArmorPiercing, hitArmor, isKill, victimName, 0);
+        handlePacket(entityId, x, y, z, damage, isHeadshot, isCritical, isTaCZ, isArmorPiercing, hitArmor, isKill, victimName, 0, "");
     }
 
     public static void handlePacket(int entityId, double x, double y, double z, float damage, boolean isHeadshot, boolean isCritical, boolean isTaCZ) {
-        handlePacket(entityId, x, y, z, damage, isHeadshot, isCritical, isTaCZ, false, false, false, "", 0);
+        handlePacket(entityId, x, y, z, damage, isHeadshot, isCritical, isTaCZ, false, false, false, "", 0, "");
     }
 
     /**
@@ -257,15 +264,18 @@ public class ClientDamageHandler {
                         int distMeters = (int) Math.round(localPlayer.position().distanceTo(entity.position()));
                         boolean isKill = entity.isDeadOrDying() || (currentHealth <= 0.05f);
 
+                        String fallbackWeapon = (localPlayer.getMainHandItem() != null && !localPlayer.getMainHandItem().isEmpty())
+                                ? localPlayer.getMainHandItem().getHoverName().getString() : "Melee";
+
                         // 詳細戦闘統計の記録
                         com.kyamy.taczindicator.client.stats.CombatStatsManager.getInstance().recordDamage(
-                                delta, false, false, false, false, hitArmor, isKill, entity.getDisplayName().getString(), distMeters
+                                delta, false, false, false, false, hitArmor, isKill, entity.getDisplayName().getString(), distMeters, fallbackWeapon
                         );
 
                         // 厳密なクライアントキル判定（deathTime == 1 かつ プレイヤー起因）
                         if (entity.isDeadOrDying() && entity.deathTime == 1) {
                             if (IndicatorConfig.isShowKillAlert()) {
-                                DamageIndicatorManager.getInstance().addKillAlert(entity.getDisplayName().getString(), distMeters);
+                                DamageIndicatorManager.getInstance().addKillAlert(entity.getDisplayName().getString(), distMeters, fallbackWeapon);
                             }
                             SoundHelper.playKillSound();
                         }

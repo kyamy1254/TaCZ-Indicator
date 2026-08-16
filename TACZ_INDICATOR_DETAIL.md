@@ -3,7 +3,7 @@
 ## 1. 概要
 
 Minecraft Forge 1.20.1 環境において、TaCZ (Timeless and Classics Zero) の銃撃ダメージおよび通常ダメージを検知し、**2D HUDレイヤー上** または3D空間でダメージ数値をポップアップ表示するMODの仕様書です。
-連続射撃や連撃時の **加算表示（累積ダメージスタック）**、**古いインジケータの上方スクロール（はけ）と表示上限数管理**、**アニメーションスタイル（浮遊上昇/拡散バウンス/重力落下/静止拡大）**、**カラーテーマ・プリセット（Default/Apex/Cyberpunk/Tactical/Valorant）**、**戦闘統計・DPSメーター（3秒スライディングウィンドウ＆マルチサーバー同期リセット）**、**カスタムビットマップフォントによる盾・盾貫通アイコン表示（防具:水色、貫通:白）**、**厳密な頭部判定($x-0.25 < y < x+0.25$)＆多層APIリフレクションによる高精度ヘッドショット判定**、**キル確定演出への距離表示($[100m]$)＆同種モブ連続キル置換更新**、**ヒット＆キル効果音**、および **被ダメージ時の画面赤色効果（ダメージヴィネット・画面フラッシュ）の完全なカスタマイズ・オンオフ制御** をサポートしています。
+連続射撃や連撃時の **加算表示（累積ダメージスタック）**、**古いインジケータの上方スクロール（はけ）と表示上限数管理**、**アニメーションスタイル（静止拡大/静止フェード/微小ポップ）**、**カラーテーマ・プリセット（Default/Apex/Cyberpunk/Tactical/Valorant）**、**戦闘統計・DPSメーター（3秒スライディングウィンドウ＆マルチサーバー同期リセット）**、**武器別キル・ダメージ統計 (Weapon Breakdown)**、**カスタムビットマップフォントによる盾・盾貫通アイコン表示（防具:水色、貫通:白）**、**厳密な頭部判定($x-0.25 < y < x+0.25$)＆多層APIリフレクションによる高精度ヘッドショット判定**、**キル確定演出への武器名＆距離表示($[AK-47] [100m]$)＆同種モブ連続キル置換更新**、**ヒット＆キル効果音**、および **被ダメージ時の画面赤色効果（ダメージヴィネット・画面フラッシュ）の完全なカスタマイズ・オンオフ制御** をサポートしています。
 
 ## 2. アーキテクチャ構成
 
@@ -14,10 +14,11 @@ Minecraft Forge 1.20.1 環境において、TaCZ (Timeless and Classics Zero) �
   - **環境ダメージ誤加算の防止**: `victim.getLastHurtByMob()` による誤判定を完全撤廃し、プレイヤー自身の直接攻撃または発射物によるダメージのみを厳密に抽出。
   - **通常殴りヘッドショット除外**: 近接素手・剣等での通常殴りはヘッドショット対象外とし、銃器射撃・弾丸プロジェクタイルのみに限定。
   - **厳密頭部当たり判定**: 目の高さ $x$ に対して高さ $x - 0.25 < y < x + 0.25$（厳密不等式）、水平面はモブ本来の当たり判定AABBと同一サイズ・位置で3D Ray-Box交差レイキャスト判定を実行。
-  - `DamageIndicatorPacket` にダメージ情報およびキル距離（`distanceMeters`）を格納して攻撃者プレイヤーへパケット送信。
+  - **武器名の高精度解決**: `TaCZCompatHandler` の `gunId` やプレイヤーのメインハンドアイテムから武器表示名（例: `AK-47`, `M4A1`, `AWP`, `Diamond Sword` 等）を自動整形して解決。
+  - `DamageIndicatorPacket` にダメージ情報、キル距離（`distanceMeters`）、武器名（`weaponName`）を格納して攻撃者プレイヤーへパケット送信。
 - **`TaCZCompatHandler`**:
   - TaCZが環境に存在する場合、`EntityHurtByGunEvent` (Pre/Post, 各パッケージ階層) や `BulletHitEvent` の動的リスナーを包括的に登録。
-  - クラス階層全体の深層リフレクション走査により、ヘッドショットフラグ、APフラグ、ヘッドショット倍率を高精度に抽出・短期キャッシュ。
+  - クラス階層全体の深層リフレクション走査により、ヘッドショットフラグ、APフラグ、ヘッドショット倍率、銃器IDを高精度に抽出・短期キャッシュ。
 - **`ModCommands`**:
   - `/taczstats reset [<targets>]` および `/taczindicator resetstats [<targets>]` コマンドの登録。
   - マルチサーバー環境において、OP管理者またはプレイヤー自身が指定ターゲットまたは全プレイヤー（`@a`）の戦闘統計（DPS・総ダメージ等）を一斉リセット可能。
@@ -27,7 +28,7 @@ Minecraft Forge 1.20.1 環境において、TaCZ (Timeless and Classics Zero) �
 - **`ModMessages`**:
   - Forge `SimpleChannel` を使用したパケット通信路の定義。
 - **`DamageIndicatorPacket`**:
-  - 対象エンティティID (`int entityId`)、発生座標 $(X, Y, Z)$、ダメージ値 (float)、ヘッドショットフラグ (boolean)、クリティカルフラグ (boolean)、TaCZフラグ (boolean)、防具貫通フラグ (boolean)、防具被弾フラグ (boolean)、キルフラグ (boolean)、ターゲット名 (String)、キル距離 (`int distanceMeters`) をバイナリシリアライズ/デシリアライズ。
+  - 対象エンティティID (`int entityId`)、発生座標 $(X, Y, Z)$、ダメージ値 (float)、ヘッドショットフラグ (boolean)、クリティカルフラグ (boolean)、TaCZフラグ (boolean)、防具貫通フラグ (boolean)、防具被弾フラグ (boolean)、キルフラグ (boolean)、ターゲット名 (String)、キル距離 (`int distanceMeters`)、武器名 (`String weaponName`) をバイナリシリアライズ/デシリアライズ。
 - **`ServerHandshakePacket`**:
   - プレイヤー参加時にクライアントへ送信し、即時に `SERVER_SYNCED` モードを確立。
 - **`ResetCombatStatsPacket`**:
@@ -38,24 +39,24 @@ Minecraft Forge 1.20.1 環境において、TaCZ (Timeless and Classics Zero) �
 - **`IndicatorConfig`**:
   - 描画モード (`renderMode`: HUD_CROSSHAIR / HUD_PROJECTED / WORLD_3D)
   - 連続ダメージモード (`consecutiveMode`: ACCUMULATE / SCROLL_UP / OFF)
-  - アニメーションスタイル (`animationStyle`: FLOAT_UP / SCATTER_POP / GRAVITY_DROP / STATIC)
+  - アニメーションスタイル (`animationStyle`: STATIC_POP / STATIC_FADE / SUBTLE_POP)
   - カラーテーマ (`colorTheme`: DEFAULT / APEX / CYBERPUNK / TACTICAL_COD / VALORANT)
   - 戦闘統計HUD (`combatStatsMode`: COMBAT_ONLY / ALWAYS / OFF, `combatStatsPosition`: TOP_RIGHT 等)
   - スクロール上限数 (`maxScrolledIndicators`)、コンボ持続時間、HUDスケール、各種アイコントグル、被ダメージ画面効果、サウンド設定を管理。
 - **`CombatStatsManager`**:
-  - 直近3秒間のスライディングウィンドウによる瞬間DPS計算、ピークDPS、平均DPS、最大単発ダメージ、総与ダメージ、命中数、HS率(%)、クリティカル率(%)、AP/防具ヒット数、最長キル距離、およびリアルタイムキル履歴ログ（最新50件）の集計・管理。
+  - 直近3秒間のスライディングウィンドウによる瞬間DPS計算、ピークDPS、平均DPS、最大単発ダメージ、総与ダメージ、命中数、HS率(%)、クリティカル率(%)、AP/防具ヒット数、最長キル距離、**武器別統計 (`WeaponStatEntry`)**、およびリアルタイムキル履歴ログ（最新50件）の集計・管理。
 - **`CombatStatsOverlay`**:
   - HUD上にコンパクトに常駐するリアルタイムDPSメーターカード（フェードイン/アウト対応）。
 - **`CombatStatsScreen`**:
-  - 専用の戦闘統計詳細GUI画面（キーバインド `J` または設定画面のボタンからオープン）。4つの詳細統計カード（ダメージ&DPS、命中分析、装甲貫通、キル記録）とスクロール可能なキル履歴一覧（最新50件）、クリップボードへの整形レポートコピー機能を搭載。
+  - 専用の戦闘統計詳細GUI画面（キーバインド `J` または設定画面のボタンからオープン）。3つのタブ切り替え（総合概要 / 武器別統計 / キル履歴）、武器ごとのダメージ・命中数・HS率・キル数・最長キル距離のスクロール一覧、クリップボードへの整形レポートコピー機能を搭載。
 - **`ModKeyBindings`**:
   - `key.taczindicator.open_config` (デフォルト: `K` キー): 設定画面を開く
   - `key.taczindicator.open_stats` (デフォルト: `J` キー): 詳細戦闘統計画面を開く
 - **`SoundHelper`**:
   - 通常ヒット音、ヘッドショット音（高音キーン音）、防具貫通音、キル確定音の再生ヘルパー（デフォルトOFF）。
 - **`KillAlertInstance`**:
-  - キル確定通知インスタンス。フォーマット: `Killed ゾンビ (x2) [100m]`。
-  - 同種モブの連続キル発生時は、重複表示せず最新の距離とカウントでその場置換更新。
+  - キル確定通知インスタンス。フォーマット: `Killed ゾンビ [AK-47] [100m]`。
+  - 同種モブの連続キル発生時は、重複表示せず最新の武器名・距離・カウントでその場置換更新。
 - **`DamageIndicatorManager`**:
   - アクティブなインジケータ群のライフサイクル管理。加算処理（ACCUMULATE）や `SCROLL_UP` 方式での表示上限数（`maxScrolledIndicators`）超過分の自動パージを制御。
 - **`DamageIndicatorHudRenderer`**:
@@ -142,6 +143,6 @@ Minecraft Forge 1.20.1 環境において、TaCZ (Timeless and Classics Zero) �
 # 単体テストの実行
 .\gradlew.bat test
 
-# MOD jar のビルド (build/libs/taczindicator-1.0.0.jar が生成されます)
+# MOD jar のビルド (build/libs/taczindicator-1.0.1.jar が生成されます)
 .\gradlew.bat build
 ```

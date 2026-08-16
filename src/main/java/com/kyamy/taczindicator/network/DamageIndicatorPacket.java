@@ -26,11 +26,12 @@ public class DamageIndicatorPacket {
     private final boolean isKill;
     private final String victimName;
     private final int distanceMeters;
+    private final String weaponName;
 
     public DamageIndicatorPacket(int entityId, double posX, double posY, double posZ, float damage,
                                  boolean isHeadshot, boolean isCritical, boolean isTaCZ,
                                  boolean isArmorPiercing, boolean hitArmor, boolean isKill, String victimName,
-                                 int distanceMeters) {
+                                 int distanceMeters, String weaponName) {
         this.entityId = entityId;
         this.posX = posX;
         this.posY = posY;
@@ -44,12 +45,20 @@ public class DamageIndicatorPacket {
         this.isKill = isKill;
         this.victimName = victimName != null ? victimName : "";
         this.distanceMeters = distanceMeters;
+        this.weaponName = weaponName != null ? weaponName : "";
+    }
+
+    public DamageIndicatorPacket(int entityId, double posX, double posY, double posZ, float damage,
+                                 boolean isHeadshot, boolean isCritical, boolean isTaCZ,
+                                 boolean isArmorPiercing, boolean hitArmor, boolean isKill, String victimName,
+                                 int distanceMeters) {
+        this(entityId, posX, posY, posZ, damage, isHeadshot, isCritical, isTaCZ, isArmorPiercing, hitArmor, isKill, victimName, distanceMeters, "");
     }
 
     public DamageIndicatorPacket(int entityId, double posX, double posY, double posZ, float damage,
                                  boolean isHeadshot, boolean isCritical, boolean isTaCZ,
                                  boolean isArmorPiercing, boolean hitArmor, boolean isKill, String victimName) {
-        this(entityId, posX, posY, posZ, damage, isHeadshot, isCritical, isTaCZ, isArmorPiercing, hitArmor, isKill, victimName, 0);
+        this(entityId, posX, posY, posZ, damage, isHeadshot, isCritical, isTaCZ, isArmorPiercing, hitArmor, isKill, victimName, 0, "");
     }
 
     public DamageIndicatorPacket(FriendlyByteBuf buf) {
@@ -66,6 +75,7 @@ public class DamageIndicatorPacket {
         this.isKill = buf.readBoolean();
         this.victimName = buf.readUtf(256);
         this.distanceMeters = buf.readVarInt();
+        this.weaponName = buf.readUtf(256);
     }
 
     public void toBytes(FriendlyByteBuf buf) {
@@ -82,6 +92,7 @@ public class DamageIndicatorPacket {
         buf.writeBoolean(this.isKill);
         buf.writeUtf(this.victimName, 256);
         buf.writeVarInt(this.distanceMeters);
+        buf.writeUtf(this.weaponName != null ? this.weaponName : "", 256);
     }
 
     public void handle(Supplier<NetworkEvent.Context> supplier) {
@@ -93,7 +104,7 @@ public class DamageIndicatorPacket {
                         entityId, posX, posY, posZ, damage,
                         isHeadshot, isCritical, isTaCZ,
                         isArmorPiercing, hitArmor, isKill, victimName,
-                        distanceMeters
+                        distanceMeters, weaponName
                 );
             });
         });
@@ -113,4 +124,5 @@ public class DamageIndicatorPacket {
     public boolean isKill() { return isKill; }
     public String getVictimName() { return victimName; }
     public int getDistanceMeters() { return distanceMeters; }
+    public String getWeaponName() { return weaponName; }
 }

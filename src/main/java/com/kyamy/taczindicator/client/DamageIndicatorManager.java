@@ -95,7 +95,7 @@ public class DamageIndicatorManager {
      * キル確定演出（Kill Alert）の追加・更新
      * 同種モブの連続キル時は最新の距離とカウントでその場置換更新
      */
-    public synchronized void addKillAlert(String victimName, int distanceMeters) {
+    public synchronized void addKillAlert(String victimName, int distanceMeters, String weaponName) {
         if (!IndicatorConfig.isEnabled() || !IndicatorConfig.isShowKillAlert()) {
             return;
         }
@@ -103,19 +103,23 @@ public class DamageIndicatorManager {
             victimName = "Enemy";
         }
 
-        // 同種モブの直近キル通知がある場合は最新距離・カウントで置換更新
+        // 同種モブの直近キル通知がある場合は最新距離・カウント・武器で置換更新
         for (KillAlertInstance alert : killAlerts) {
             if (!alert.isExpired() && alert.getVictimName().equals(victimName)) {
-                alert.updateKill(distanceMeters);
+                alert.updateKill(distanceMeters, weaponName);
                 return;
             }
         }
 
-        killAlerts.add(new KillAlertInstance(victimName, distanceMeters));
+        killAlerts.add(new KillAlertInstance(victimName, distanceMeters, weaponName));
+    }
+
+    public synchronized void addKillAlert(String victimName, int distanceMeters) {
+        addKillAlert(victimName, distanceMeters, "");
     }
 
     public synchronized void addKillAlert(String victimName) {
-        addKillAlert(victimName, 0);
+        addKillAlert(victimName, 0, "");
     }
 
     private IndicatorInstance findRecentIndicatorForEntity(int entityId, int maxAge) {

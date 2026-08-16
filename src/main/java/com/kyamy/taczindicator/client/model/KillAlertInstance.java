@@ -10,6 +10,7 @@ public class KillAlertInstance {
     private final String victimName;
     private int killCount;
     private int distanceMeters;
+    private String weaponName;
     private int ageTicks;
     private final int maxLifetime;
 
@@ -17,10 +18,11 @@ public class KillAlertInstance {
     private float prevPopScale;
     private String formattedText;
 
-    public KillAlertInstance(String victimName, int distanceMeters) {
+    public KillAlertInstance(String victimName, int distanceMeters, String weaponName) {
         this.victimName = victimName;
         this.killCount = 1;
         this.distanceMeters = distanceMeters;
+        this.weaponName = weaponName != null ? weaponName : "";
         this.ageTicks = 0;
         this.maxLifetime = 50; // 約2.5秒
 
@@ -30,24 +32,35 @@ public class KillAlertInstance {
         updateFormattedText();
     }
 
+    public KillAlertInstance(String victimName, int distanceMeters) {
+        this(victimName, distanceMeters, "");
+    }
+
     public KillAlertInstance(String victimName) {
-        this(victimName, 0);
+        this(victimName, 0, "");
     }
 
     /**
-     * 同種モブの連続キル発生時に新しい距離とカウントで置換更新
+     * 同種モブの連続キル発生時に新しい距離・武器・カウントで置換更新
      */
-    public void updateKill(int newDistanceMeters) {
+    public void updateKill(int newDistanceMeters, String newWeaponName) {
         this.killCount++;
         this.distanceMeters = newDistanceMeters;
+        if (newWeaponName != null && !newWeaponName.isBlank()) {
+            this.weaponName = newWeaponName;
+        }
         this.ageTicks = 0; // 表示時間をリセット
         this.popScale = 1.45f;
         this.prevPopScale = 1.45f;
         updateFormattedText();
     }
 
+    public void updateKill(int newDistanceMeters) {
+        updateKill(newDistanceMeters, this.weaponName);
+    }
+
     public void addMultiKill() {
-        updateKill(this.distanceMeters);
+        updateKill(this.distanceMeters, this.weaponName);
     }
 
     private void updateFormattedText() {
@@ -58,11 +71,14 @@ public class KillAlertInstance {
             base = Component.translatable("taczindicator.kill.single", this.victimName).getString();
         }
 
-        if (this.distanceMeters > 0) {
-            this.formattedText = base + " §7[" + this.distanceMeters + "m]";
-        } else {
-            this.formattedText = base;
+        StringBuilder sb = new StringBuilder(base);
+        if (this.weaponName != null && !this.weaponName.isBlank()) {
+            sb.append(" §6[").append(this.weaponName).append("]");
         }
+        if (this.distanceMeters > 0) {
+            sb.append(" §7[").append(this.distanceMeters).append("m]");
+        }
+        this.formattedText = sb.toString();
     }
 
     public void tick() {

@@ -51,12 +51,18 @@
   "taczindicator.gui.combat_stats_position": "DPS位置: %s",
   "taczindicator.gui.reset_stats_btn": "統計をリセット",
 
+  "taczindicator.stats.tab.overview": "総合概要",
+  "taczindicator.stats.tab.weapons": "武器別統計",
+  "taczindicator.stats.tab.kill_logs": "キル履歴",
+
   "taczindicator.stats.gui.title": "戦闘詳細統計 (Combat Stats)",
-  "taczindicator.stats.gui.subtitle": "セッション詳細データ・DPS分析・キル履歴",
+  "taczindicator.stats.gui.subtitle": "セッション詳細データ・DPS分析・武器別統計・キル履歴",
   "taczindicator.stats.gui.copy_btn": "📋 統計をコピー",
   "taczindicator.stats.gui.copied_feedback": "クリップボードにコピーしました！",
   "taczindicator.stats.gui.reset_feedback": "戦闘統計をリセットしました！",
   "taczindicator.stats.gui.config_btn": "⚙ 設定画面",
+  "taczindicator.stats.gui.weapon_breakdown_title": "[ 武器別キル・ダメージ統計 ]",
+  "taczindicator.stats.gui.no_weapon_stats": "武器の戦闘データはまだありません",
   "taczindicator.stats.gui.kill_logs_title": "[ キル履歴一覧 (最新50件) ]",
   "taczindicator.stats.gui.no_kill_logs": "キル履歴はまだありません",
 
