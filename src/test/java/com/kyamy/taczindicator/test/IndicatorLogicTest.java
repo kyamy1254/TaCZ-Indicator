@@ -108,18 +108,18 @@ public class IndicatorLogicTest {
         String iconShield = "\uE001";
         String iconPenetration = "\uE002";
 
-        // 通常ダメージ + 盾貫通 (AP) -> 末尾に \uE002
+        // 通常ダメージ + 盾貫通 (AP) -> 白 (§f\uE002)
         float damage = 45.0f;
-        String textAP = String.format(Locale.ROOT, "%.1f", damage) + " §b" + iconPenetration;
-        assertEquals("45.0 §b\uE002", textAP);
+        String textAP = String.format(Locale.ROOT, "%.1f", damage) + " §f" + iconPenetration;
+        assertEquals("45.0 §f\uE002", textAP);
 
-        // クリティカル + 盾貫通 (AP) -> 接頭辞★ + 末尾に \uE002
-        String textCritAP = "§6★ §l" + String.format(Locale.ROOT, "%.1f", damage) + "§r §b" + iconPenetration;
-        assertEquals("§6★ §l45.0§r §b\uE002", textCritAP);
+        // クリティカル + 盾貫通 (AP) -> 接頭辞★ + 白 (§f\uE002)
+        String textCritAP = "§6★ §l" + String.format(Locale.ROOT, "%.1f", damage) + "§r §f" + iconPenetration;
+        assertEquals("§6★ §l45.0§r §f\uE002", textCritAP);
 
-        // ヘッドショット + 通常防具軽減 (盾) -> 接頭辞☠ + 末尾に \uE001
-        String textHSShield = "§c☠ §l" + String.format(Locale.ROOT, "%.1f", damage) + "§r §f" + iconShield;
-        assertEquals("§c☠ §l45.0§r §f\uE001", textHSShield);
+        // ヘッドショット + 通常防具軽減 (盾) -> 接頭辞☠ + 水色 (§b\uE001)
+        String textHSShield = "§c☠ §l" + String.format(Locale.ROOT, "%.1f", damage) + "§r §b" + iconShield;
+        assertEquals("§c☠ §l45.0§r §b\uE001", textHSShield);
     }
 
     @Test

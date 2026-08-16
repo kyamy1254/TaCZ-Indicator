@@ -407,9 +407,9 @@ public class IndicatorConfigScreen extends Screen {
         String sample1 = "45.0";
         if (this.tempShowHitCount) sample1 += " §7(x2)";
         if (this.tempShowArmorPiercingIcon) {
-            sample1 += " §b\uE002";
+            sample1 += " §f\uE002";
         } else if (this.tempShowArmorDamageIcon) {
-            sample1 += " §f\uE001";
+            sample1 += " §b\uE001";
         }
 
         // サンプル2（複数モブ被弾時の2行目スタック）

@@ -92,11 +92,11 @@ public class IndicatorInstance {
             numText += " §7(x" + this.hitCount + ")";
         }
 
-        // 盾貫通（AP）または通常の防具軽減（盾）アイコンを末尾に表示
+        // 盾貫通（AP: 白）または通常の防具軽減（盾: 水色）アイコンを末尾に表示
         if (this.isArmorPiercing && IndicatorConfig.isShowArmorPiercingIcon()) {
-            numText += " §b" + ICON_SHIELD_PENETRATION;
+            numText += " §f" + ICON_SHIELD_PENETRATION;
         } else if (this.hitArmor && IndicatorConfig.isShowArmorDamageIcon()) {
-            numText += " §f" + ICON_SHIELD;
+            numText += " §b" + ICON_SHIELD;
         }
 
         this.formattedText = numText;
