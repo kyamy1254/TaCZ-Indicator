@@ -72,9 +72,6 @@ public class KillAlertInstance {
         }
 
         StringBuilder sb = new StringBuilder(base);
-        if (this.weaponName != null && !this.weaponName.isBlank()) {
-            sb.append(" §6[").append(this.weaponName).append("]");
-        }
         if (this.distanceMeters > 0) {
             sb.append(" §7[").append(this.distanceMeters).append("m]");
         }

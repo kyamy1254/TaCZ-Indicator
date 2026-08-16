@@ -582,16 +582,15 @@ public class IndicatorLogicTest {
     }
 
     @Test
-    @DisplayName("キル通知の武器名表示フォーマット検証")
-    void testKillAlertWithWeaponName() {
-        KillAlertInstance alert = new KillAlertInstance("Zombie", 100, "AK-47");
-        assertTrue(alert.getFormattedText().contains("[AK-47]"));
+    @DisplayName("キル通知の距離表示および連続キルフォーマット検証")
+    void testKillAlertFormatting() {
+        KillAlertInstance alert = new KillAlertInstance("Zombie", 100);
         assertTrue(alert.getFormattedText().contains("[100m]"));
+        assertFalse(alert.getFormattedText().contains("[AK-47]"));
 
-        // 武器名更新
-        alert.updateKill(45, "M4A1");
+        // 連続キル更新
+        alert.updateKill(45);
         assertEquals(2, alert.getKillCount());
-        assertTrue(alert.getFormattedText().contains("[M4A1]"));
         assertTrue(alert.getFormattedText().contains("[45m]"));
     }
 
