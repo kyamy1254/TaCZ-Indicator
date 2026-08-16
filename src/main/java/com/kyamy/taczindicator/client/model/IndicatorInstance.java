@@ -160,16 +160,16 @@ public class IndicatorInstance {
     }
 
     /**
-     * 同一ターゲットへの連続ダメージを加算
+     * 同一ターゲットへの連続ダメージを加算（最新ヒットの状態・アイコン・デザインに合わせて更新）
      */
     public void accumulateDamage(float additionalDamage, boolean headshot, boolean critical, boolean tacz, boolean ap, boolean armor) {
         this.damage += additionalDamage;
         this.hitCount++;
-        if (headshot) this.isHeadshot = true;
-        if (critical) this.isCritical = true;
-        if (tacz) this.isTaCZ = true;
-        if (ap) this.isArmorPiercing = true;
-        if (armor) this.hitArmor = true;
+        this.isHeadshot = headshot;
+        this.isCritical = critical;
+        this.isTaCZ = tacz;
+        this.isArmorPiercing = ap;
+        this.hitArmor = armor;
 
         // タイマーのリセットとポップアニメーションの再トリガー
         this.ageTicks = 0;

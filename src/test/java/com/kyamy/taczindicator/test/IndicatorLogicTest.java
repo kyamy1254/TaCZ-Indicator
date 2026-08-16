@@ -75,6 +75,53 @@ public class IndicatorLogicTest {
     }
 
     @Test
+    @DisplayName("連続ダメージ累積加算時の最新ヒット状態・アイコン更新検証")
+    void testAccumulateDamageUpdatesStateToLatestHit() {
+        com.kyamy.taczindicator.client.model.IndicatorInstance ind = new com.kyamy.taczindicator.client.model.IndicatorInstance(
+                1, 0, 64, 0, 100.0f, true, false, true, true, false
+        );
+
+        // 1発目: ヘッドショット + AP貫通弾
+        assertTrue(ind.isHeadshot());
+        assertTrue(ind.isArmorPiercing());
+        assertFalse(ind.isHitArmor());
+        assertTrue(ind.getFormattedText().contains("☠"));
+        assertTrue(ind.getFormattedText().contains("\uE002"));
+
+        // 2発目: 通常胴体ヒット (APなし・防具なし)
+        ind.accumulateDamage(35.0f, false, false, true, false, false);
+        assertEquals(135.0f, ind.getDamage(), 1e-4);
+        assertEquals(2, ind.getHitCount());
+        assertFalse(ind.isHeadshot(), "非ヘッドショットヒット後はヘッドショット状態が解除されるべき");
+        assertFalse(ind.isArmorPiercing(), "非AP弾ヒット後はAPアイコンが解除されるべき");
+        assertFalse(ind.getFormattedText().contains("☠"), "非ヘッドショット時はドクロアイコンが表示されないべき");
+        assertFalse(ind.getFormattedText().contains("\uE002"), "非AP時はAPアイコンが表示されないべき");
+        assertTrue(ind.getFormattedText().contains("(x2)"));
+
+        // 3発目: クリティカル + 通常防具軽減
+        ind.accumulateDamage(25.0f, false, true, true, false, true);
+        assertEquals(160.0f, ind.getDamage(), 1e-4);
+        assertEquals(3, ind.getHitCount());
+        assertTrue(ind.isCritical());
+        assertTrue(ind.isHitArmor());
+        assertFalse(ind.isHeadshot());
+        assertFalse(ind.isArmorPiercing());
+        assertTrue(ind.getFormattedText().contains("★"));
+        assertTrue(ind.getFormattedText().contains("\uE001"));
+        assertTrue(ind.getFormattedText().contains("(x3)"));
+
+        // 4発目: 通常胴体ヒット
+        ind.accumulateDamage(20.0f, false, false, true, false, false);
+        assertEquals(180.0f, ind.getDamage(), 1e-4);
+        assertEquals(4, ind.getHitCount());
+        assertFalse(ind.isCritical());
+        assertFalse(ind.isHitArmor());
+        assertFalse(ind.getFormattedText().contains("★"));
+        assertFalse(ind.getFormattedText().contains("\uE001"));
+        assertTrue(ind.getFormattedText().contains("(x4)"));
+    }
+
+    @Test
     @DisplayName("連続ダメージ累積加算ロジックの検証")
     void testCumulativeDamageAccumulation() {
         float initialDamage = 15.5f;
