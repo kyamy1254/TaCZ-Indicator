@@ -369,8 +369,8 @@ public class IndicatorConfig {
                             "==================================================").push("sounds");
 
             enableHitSound = builder
-                    .comment("攻撃命中時のヒット音を再生するかどうか")
-                    .define("enableHitSound", true);
+                    .comment("攻撃命中時のヒット音を再生するかどうか (他MODとの競合防止のためデフォルトOFF)")
+                    .define("enableHitSound", false);
 
             hitSoundVolume = builder
                     .comment("ヒット音の音量 (0.0: 無音, 1.0: 最大音量)")
@@ -378,11 +378,11 @@ public class IndicatorConfig {
 
             enableHeadshotSound = builder
                     .comment("ヘッドショット命中時の高音キーン音を再生するかどうか")
-                    .define("enableHeadshotSound", true);
+                    .define("enableHeadshotSound", false);
 
             enableKillSound = builder
                     .comment("敵撃破時のキル確定音を再生するかどうか")
-                    .define("enableKillSound", true);
+                    .define("enableKillSound", false);
 
             killSoundVolume = builder
                     .comment("キル確定音の音量 (0.0: 無音, 1.0: 最大音量)")

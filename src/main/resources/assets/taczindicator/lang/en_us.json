@@ -3,6 +3,11 @@
   "key.taczindicator.open_config": "Open Indicator Settings",
 
   "taczindicator.gui.title": "TaCZ Indicator Settings",
+  "taczindicator.gui.tab.general": "General",
+  "taczindicator.gui.tab.hud": "HUD & Layout",
+  "taczindicator.gui.tab.visuals": "Visuals & 3D",
+  "taczindicator.gui.tab.sounds": "Sounds",
+
   "taczindicator.gui.category.general": "General",
   "taczindicator.gui.category.display": "Display & Combo",
   "taczindicator.gui.category.hud": "HUD Layout",
@@ -26,6 +31,9 @@
   "taczindicator.gui.vignette_opacity": "Red Effect Opacity: %.2f",
   "taczindicator.gui.hit_sound": "Hit Sound: %s",
   "taczindicator.gui.kill_sound": "Kill Sound: %s",
+  "taczindicator.gui.headshot_sound": "HS Chime: %s",
+  "taczindicator.gui.hit_volume": "Hit Vol: %.1f",
+  "taczindicator.gui.kill_volume": "Kill Vol: %.1f",
   "taczindicator.gui.max_scrolled": "Max Scrolled: %d",
   "taczindicator.gui.constant_size": "3D Equal Size: %s",
   "taczindicator.gui.xray": "3D X-Ray: %s",

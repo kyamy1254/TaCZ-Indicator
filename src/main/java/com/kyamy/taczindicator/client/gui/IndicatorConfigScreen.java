@@ -9,13 +9,33 @@ import net.minecraft.network.chat.Component;
 
 /**
  * ゲーム内リアルタイムGUI設定画面
- * 各機能の完全なON/OFFトグル、サウンド設定、スクロール上限、被ダメ画面赤色効果の調整、およびドラッグプレビュー位置調整を完備
+ * タブ（カテゴリ）分割による快適なUIナビゲーション、各種機能トグル、サウンド設定、およびドラッグプレビューを完備
  */
 public class IndicatorConfigScreen extends Screen {
 
-    private final Screen parentScreen;
+    public enum ConfigTab {
+        GENERAL("taczindicator.gui.tab.general"),
+        HUD_LAYOUT("taczindicator.gui.tab.hud"),
+        VISUALS_3D("taczindicator.gui.tab.visuals"),
+        SOUNDS("taczindicator.gui.tab.sounds");
 
-    // 一時編集用設定値
+        private final String translationKey;
+
+        ConfigTab(String translationKey) {
+            this.translationKey = translationKey;
+        }
+
+        public Component getTitle(boolean isSelected) {
+            String prefix = isSelected ? "§a§l[" : "§7";
+            String suffix = isSelected ? "§a§l]" : "§7";
+            return Component.literal(prefix + " ").append(Component.translatable(this.translationKey)).append(suffix);
+        }
+    }
+
+    private final Screen parentScreen;
+    private ConfigTab currentTab = ConfigTab.GENERAL;
+
+    // 一時編集用設定値 (全般・表示)
     private boolean tempEnabled;
     private boolean tempOnlyPlayerDamage;
     private boolean tempOnlyTaczDamage;
@@ -23,24 +43,29 @@ public class IndicatorConfigScreen extends Screen {
     private IndicatorConfig.ConsecutiveMode tempConsecutiveMode;
     private boolean tempShowKillAlert;
     private boolean tempShowHitCount;
+
+    // HUD・配置
+    private double tempHudScale;
+    private double tempOffsetX;
+    private double tempOffsetY;
+    private int tempMaxScrolledIndicators;
+
+    // アイコン・3D・画面エフェクト
     private boolean tempShowHeadshotIcon;
     private boolean tempShowCriticalIcon;
     private boolean tempShowArmorPiercingIcon;
     private boolean tempShowArmorDamageIcon;
     private boolean tempEnableConstantSize;
     private boolean tempEnableXRay;
-    private double tempHudScale;
-    private double tempOffsetX;
-    private double tempOffsetY;
-    private int tempMaxScrolledIndicators;
-
-    // 被ダメージ画面赤色効果設定
     private boolean tempDamageVignetteEnabled;
     private double tempDamageVignetteOpacity;
 
     // サウンド設定
     private boolean tempHitSoundEnabled;
+    private double tempHitSoundVolume;
+    private boolean tempHeadshotSoundEnabled;
     private boolean tempKillSoundEnabled;
+    private double tempKillSoundVolume;
 
     private boolean isDragging = false;
 
@@ -56,192 +81,246 @@ public class IndicatorConfigScreen extends Screen {
         this.tempConsecutiveMode = IndicatorConfig.getConsecutiveMode();
         this.tempShowKillAlert = IndicatorConfig.isShowKillAlert();
         this.tempShowHitCount = IndicatorConfig.isShowHitCount();
+
+        this.tempHudScale = IndicatorConfig.getHudScale();
+        this.tempOffsetX = IndicatorConfig.getCrosshairOffsetX();
+        this.tempOffsetY = IndicatorConfig.getCrosshairOffsetY();
+        this.tempMaxScrolledIndicators = IndicatorConfig.getMaxScrolledIndicators();
+
         this.tempShowHeadshotIcon = IndicatorConfig.isShowHeadshotIcon();
         this.tempShowCriticalIcon = IndicatorConfig.isShowCriticalIcon();
         this.tempShowArmorPiercingIcon = IndicatorConfig.isShowArmorPiercingIcon();
         this.tempShowArmorDamageIcon = IndicatorConfig.isShowArmorDamageIcon();
         this.tempEnableConstantSize = IndicatorConfig.isConstantSize();
         this.tempEnableXRay = IndicatorConfig.isXRay();
-        this.tempHudScale = IndicatorConfig.getHudScale();
-        this.tempOffsetX = IndicatorConfig.getCrosshairOffsetX();
-        this.tempOffsetY = IndicatorConfig.getCrosshairOffsetY();
-        this.tempMaxScrolledIndicators = IndicatorConfig.getMaxScrolledIndicators();
-
         this.tempDamageVignetteEnabled = IndicatorConfig.isDamageVignetteEnabled();
         this.tempDamageVignetteOpacity = IndicatorConfig.getDamageVignetteOpacity();
 
         this.tempHitSoundEnabled = IndicatorConfig.isHitSoundEnabled();
+        this.tempHitSoundVolume = IndicatorConfig.getHitSoundVolume();
+        this.tempHeadshotSoundEnabled = IndicatorConfig.isHeadshotSoundEnabled();
         this.tempKillSoundEnabled = IndicatorConfig.isKillSoundEnabled();
+        this.tempKillSoundVolume = IndicatorConfig.getKillSoundVolume();
     }
 
     @Override
     protected void init() {
         super.init();
+        this.clearWidgets();
 
-        int leftCol = 12;
-        int rightCol = this.width - 162;
-        int btnWidth = 150;
-        int btnHeight = 17;
-        int startY = 28;
-        int gap = 19;
+        int centerX = this.width / 2;
 
-        // --- 左側ボタングループ (基本動作・戦闘・画面効果・サウンド) ---
-        // 1. MOD有効/無効
-        this.addRenderableWidget(Button.builder(getEnabledText(), btn -> {
-            this.tempEnabled = !this.tempEnabled;
-            btn.setMessage(getEnabledText());
-        }).bounds(leftCol, startY, btnWidth, btnHeight).build());
+        // 1. トップカテゴリタブバー
+        int tabWidth = Math.min(115, (this.width - 20) / 4);
+        int tabTotalWidth = tabWidth * 4;
+        int tabStartX = centerX - tabTotalWidth / 2;
+        int tabY = 22;
 
-        // 2. プレイヤー与ダメ限定
-        this.addRenderableWidget(Button.builder(getOnlyPlayerDamageText(), btn -> {
-            this.tempOnlyPlayerDamage = !this.tempOnlyPlayerDamage;
-            btn.setMessage(getOnlyPlayerDamageText());
-        }).bounds(leftCol, startY + gap, btnWidth, btnHeight).build());
+        for (int i = 0; i < ConfigTab.values().length; i++) {
+            ConfigTab tab = ConfigTab.values()[i];
+            this.addRenderableWidget(Button.builder(tab.getTitle(this.currentTab == tab), btn -> {
+                this.currentTab = tab;
+                this.init();
+            }).bounds(tabStartX + i * tabWidth, tabY, tabWidth - 2, 18).build());
+        }
 
-        // 3. TaCZ銃撃限定
-        this.addRenderableWidget(Button.builder(getOnlyTaczDamageText(), btn -> {
-            this.tempOnlyTaczDamage = !this.tempOnlyTaczDamage;
-            btn.setMessage(getOnlyTaczDamageText());
-        }).bounds(leftCol, startY + gap * 2, btnWidth, btnHeight).build());
+        // 2. 現在のタブに応じたウィジェットの構築
+        initCurrentTabWidgets();
 
-        // 4. 描画モード
-        this.addRenderableWidget(Button.builder(getRenderModeText(), btn -> {
-            IndicatorConfig.RenderMode[] modes = IndicatorConfig.RenderMode.values();
-            int nextIdx = (this.tempRenderMode.ordinal() + 1) % modes.length;
-            this.tempRenderMode = modes[nextIdx];
-            btn.setMessage(getRenderModeText());
-        }).bounds(leftCol, startY + gap * 3, btnWidth, btnHeight).build());
-
-        // 5. 連続ダメージ形式
-        this.addRenderableWidget(Button.builder(getConsecutiveModeText(), btn -> {
-            IndicatorConfig.ConsecutiveMode[] modes = IndicatorConfig.ConsecutiveMode.values();
-            int nextIdx = (this.tempConsecutiveMode.ordinal() + 1) % modes.length;
-            this.tempConsecutiveMode = modes[nextIdx];
-            btn.setMessage(getConsecutiveModeText());
-        }).bounds(leftCol, startY + gap * 4, btnWidth, btnHeight).build());
-
-        // 6. キル演出トグル
-        this.addRenderableWidget(Button.builder(getKillAlertText(), btn -> {
-            this.tempShowKillAlert = !this.tempShowKillAlert;
-            btn.setMessage(getKillAlertText());
-        }).bounds(leftCol, startY + gap * 5, btnWidth, btnHeight).build());
-
-        // 7. ヒット数併記 (x3)
-        this.addRenderableWidget(Button.builder(getShowHitCountText(), btn -> {
-            this.tempShowHitCount = !this.tempShowHitCount;
-            btn.setMessage(getShowHitCountText());
-        }).bounds(leftCol, startY + gap * 6, btnWidth, btnHeight).build());
-
-        // 8. 被ダメージ画面赤色効果 (ヴィネット) トグル
-        this.addRenderableWidget(Button.builder(getDamageVignetteText(), btn -> {
-            this.tempDamageVignetteEnabled = !this.tempDamageVignetteEnabled;
-            btn.setMessage(getDamageVignetteText());
-        }).bounds(leftCol, startY + gap * 7, btnWidth, btnHeight).build());
-
-        // 9. ヒット効果音
-        this.addRenderableWidget(Button.builder(getHitSoundText(), btn -> {
-            this.tempHitSoundEnabled = !this.tempHitSoundEnabled;
-            btn.setMessage(getHitSoundText());
-        }).bounds(leftCol, startY + gap * 8, btnWidth, btnHeight).build());
-
-        // 10. キル確定音
-        this.addRenderableWidget(Button.builder(getKillSoundText(), btn -> {
-            this.tempKillSoundEnabled = !this.tempKillSoundEnabled;
-            btn.setMessage(getKillSoundText());
-        }).bounds(leftCol, startY + gap * 9, btnWidth, btnHeight).build());
-
-        // --- 右側ボタングループ (アイコン装飾・3D設定・ヴィネット調整・上限数) ---
-        // 1. ☠ ヘッドショットアイコン
-        this.addRenderableWidget(Button.builder(getHeadshotIconText(), btn -> {
-            this.tempShowHeadshotIcon = !this.tempShowHeadshotIcon;
-            btn.setMessage(getHeadshotIconText());
-        }).bounds(rightCol, startY, btnWidth, btnHeight).build());
-
-        // 2. ★ クリティカルアイコン
-        this.addRenderableWidget(Button.builder(getCriticalIconText(), btn -> {
-            this.tempShowCriticalIcon = !this.tempShowCriticalIcon;
-            btn.setMessage(getCriticalIconText());
-        }).bounds(rightCol, startY + gap, btnWidth, btnHeight).build());
-
-        // 3. 🗡 防具貫通(AP)アイコン
-        this.addRenderableWidget(Button.builder(getArmorPiercingIconText(), btn -> {
-            this.tempShowArmorPiercingIcon = !this.tempShowArmorPiercingIcon;
-            btn.setMessage(getArmorPiercingIconText());
-        }).bounds(rightCol, startY + gap * 2, btnWidth, btnHeight).build());
-
-        // 4. 🛡️ 防具軽減アイコン
-        this.addRenderableWidget(Button.builder(getArmorDamageIconText(), btn -> {
-            this.tempShowArmorDamageIcon = !this.tempShowArmorDamageIcon;
-            btn.setMessage(getArmorDamageIconText());
-        }).bounds(rightCol, startY + gap * 3, btnWidth, btnHeight).build());
-
-        // 5. 3D画面上同一サイズ
-        this.addRenderableWidget(Button.builder(getConstantSizeText(), btn -> {
-            this.tempEnableConstantSize = !this.tempEnableConstantSize;
-            btn.setMessage(getConstantSizeText());
-        }).bounds(rightCol, startY + gap * 4, btnWidth, btnHeight).build());
-
-        // 6. 3D壁越し透過X-Ray
-        this.addRenderableWidget(Button.builder(getXRayText(), btn -> {
-            this.tempEnableXRay = !this.tempEnableXRay;
-            btn.setMessage(getXRayText());
-        }).bounds(rightCol, startY + gap * 5, btnWidth, btnHeight).build());
-
-        // 7. 文字スケール縮小 / 拡大 [-] [+]
-        this.addRenderableWidget(Button.builder(Component.literal("Scale -"), btn -> {
-            this.tempHudScale = Math.max(0.4, Math.round((this.tempHudScale - 0.1) * 10.0) / 10.0);
-        }).bounds(rightCol, startY + gap * 6, 72, btnHeight).build());
-
-        this.addRenderableWidget(Button.builder(Component.literal("Scale +"), btn -> {
-            this.tempHudScale = Math.min(3.0, Math.round((this.tempHudScale + 0.1) * 10.0) / 10.0);
-        }).bounds(rightCol + 78, startY + gap * 6, 72, btnHeight).build());
-
-        // 8. 被ダメ画面効果 濃さ (不透明度) [-] [+]
-        this.addRenderableWidget(Button.builder(Component.literal("Red -"), btn -> {
-            this.tempDamageVignetteOpacity = Math.max(0.0, Math.round((this.tempDamageVignetteOpacity - 0.05) * 100.0) / 100.0);
-        }).bounds(rightCol, startY + gap * 7, 72, btnHeight).build());
-
-        this.addRenderableWidget(Button.builder(Component.literal("Red +"), btn -> {
-            this.tempDamageVignetteOpacity = Math.min(1.0, Math.round((this.tempDamageVignetteOpacity + 0.05) * 100.0) / 100.0);
-        }).bounds(rightCol + 78, startY + gap * 7, 72, btnHeight).build());
-
-        // 9. スクロール上限数 [-] [+]
-        this.addRenderableWidget(Button.builder(Component.literal("Scroll -"), btn -> {
-            this.tempMaxScrolledIndicators = Math.max(1, this.tempMaxScrolledIndicators - 1);
-        }).bounds(rightCol, startY + gap * 8, 72, btnHeight).build());
-
-        this.addRenderableWidget(Button.builder(Component.literal("Scroll +"), btn -> {
-            this.tempMaxScrolledIndicators = Math.min(20, this.tempMaxScrolledIndicators + 1);
-        }).bounds(rightCol + 78, startY + gap * 8, 72, btnHeight).build());
-
-        // 10. 位置 & 設定リセット
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("taczindicator.gui.reset_defaults"),
-                btn -> {
-                    this.tempOffsetX = 18.0;
-                    this.tempOffsetY = -4.0;
-                    this.tempHudScale = 1.15;
-                    this.tempDamageVignetteEnabled = true;
-                    this.tempDamageVignetteOpacity = 0.45;
-                    this.tempMaxScrolledIndicators = 6;
-                    this.tempHitSoundEnabled = true;
-                    this.tempKillSoundEnabled = true;
-                }
-        ).bounds(rightCol, startY + gap * 9, btnWidth, btnHeight).build());
-
-        // --- 下部アクションボタン ---
+        // 3. 最下部アクションボタン
         int bottomY = this.height - 24;
         int centerBtnWidth = 140;
 
         this.addRenderableWidget(Button.builder(
                 Component.translatable("taczindicator.gui.save_and_close"),
                 btn -> saveAndClose()
-        ).bounds(this.width / 2 - centerBtnWidth - 10, bottomY, centerBtnWidth, 20).build());
+        ).bounds(centerX - centerBtnWidth - 10, bottomY, centerBtnWidth, 20).build());
 
         this.addRenderableWidget(Button.builder(
                 Component.translatable("gui.cancel"),
                 btn -> this.onClose()
-        ).bounds(this.width / 2 + 10, bottomY, centerBtnWidth, 20).build());
+        ).bounds(centerX + 10, bottomY, centerBtnWidth, 20).build());
+    }
+
+    private void initCurrentTabWidgets() {
+        int leftCol = 15;
+        int rightCol = this.width - 165;
+        int btnWidth = 150;
+        int btnHeight = 18;
+        int startY = 46;
+        int gap = 21;
+
+        switch (this.currentTab) {
+            case GENERAL -> {
+                // [全般・基本設定]
+                // 1. MOD有効/無効
+                this.addRenderableWidget(Button.builder(getEnabledText(), btn -> {
+                    this.tempEnabled = !this.tempEnabled;
+                    btn.setMessage(getEnabledText());
+                }).bounds(leftCol, startY, btnWidth, btnHeight).build());
+
+                // 2. プレイヤー与ダメ限定
+                this.addRenderableWidget(Button.builder(getOnlyPlayerDamageText(), btn -> {
+                    this.tempOnlyPlayerDamage = !this.tempOnlyPlayerDamage;
+                    btn.setMessage(getOnlyPlayerDamageText());
+                }).bounds(leftCol, startY + gap, btnWidth, btnHeight).build());
+
+                // 3. TaCZ銃撃限定
+                this.addRenderableWidget(Button.builder(getOnlyTaczDamageText(), btn -> {
+                    this.tempOnlyTaczDamage = !this.tempOnlyTaczDamage;
+                    btn.setMessage(getOnlyTaczDamageText());
+                }).bounds(leftCol, startY + gap * 2, btnWidth, btnHeight).build());
+
+                // 4. 描画モード
+                this.addRenderableWidget(Button.builder(getRenderModeText(), btn -> {
+                    IndicatorConfig.RenderMode[] modes = IndicatorConfig.RenderMode.values();
+                    int nextIdx = (this.tempRenderMode.ordinal() + 1) % modes.length;
+                    this.tempRenderMode = modes[nextIdx];
+                    btn.setMessage(getRenderModeText());
+                }).bounds(rightCol, startY, btnWidth, btnHeight).build());
+
+                // 5. 連続ダメージ形式
+                this.addRenderableWidget(Button.builder(getConsecutiveModeText(), btn -> {
+                    IndicatorConfig.ConsecutiveMode[] modes = IndicatorConfig.ConsecutiveMode.values();
+                    int nextIdx = (this.tempConsecutiveMode.ordinal() + 1) % modes.length;
+                    this.tempConsecutiveMode = modes[nextIdx];
+                    btn.setMessage(getConsecutiveModeText());
+                }).bounds(rightCol, startY + gap, btnWidth, btnHeight).build());
+
+                // 6. キル演出トグル
+                this.addRenderableWidget(Button.builder(getKillAlertText(), btn -> {
+                    this.tempShowKillAlert = !this.tempShowKillAlert;
+                    btn.setMessage(getKillAlertText());
+                }).bounds(rightCol, startY + gap * 2, btnWidth, btnHeight).build());
+            }
+            case HUD_LAYOUT -> {
+                // [HUD・配置調整]
+                // 1. ヒット数併記 (x3)
+                this.addRenderableWidget(Button.builder(getShowHitCountText(), btn -> {
+                    this.tempShowHitCount = !this.tempShowHitCount;
+                    btn.setMessage(getShowHitCountText());
+                }).bounds(leftCol, startY, btnWidth, btnHeight).build());
+
+                // 2. 文字スケール縮小 / 拡大 [-] [+]
+                this.addRenderableWidget(Button.builder(Component.literal("Scale -"), btn -> {
+                    this.tempHudScale = Math.max(0.4, Math.round((this.tempHudScale - 0.1) * 10.0) / 10.0);
+                }).bounds(leftCol, startY + gap, 72, btnHeight).build());
+
+                this.addRenderableWidget(Button.builder(Component.literal("Scale +"), btn -> {
+                    this.tempHudScale = Math.min(3.0, Math.round((this.tempHudScale + 0.1) * 10.0) / 10.0);
+                }).bounds(leftCol + 78, startY + gap, 72, btnHeight).build());
+
+                // 3. スクロール上限数 [-] [+]
+                this.addRenderableWidget(Button.builder(Component.literal("Scroll -"), btn -> {
+                    this.tempMaxScrolledIndicators = Math.max(1, this.tempMaxScrolledIndicators - 1);
+                }).bounds(leftCol, startY + gap * 2, 72, btnHeight).build());
+
+                this.addRenderableWidget(Button.builder(Component.literal("Scroll +"), btn -> {
+                    this.tempMaxScrolledIndicators = Math.min(20, this.tempMaxScrolledIndicators + 1);
+                }).bounds(leftCol + 78, startY + gap * 2, 72, btnHeight).build());
+
+                // 4. 位置リセット
+                this.addRenderableWidget(Button.builder(
+                        Component.translatable("taczindicator.gui.reset_defaults"),
+                        btn -> {
+                            this.tempOffsetX = 18.0;
+                            this.tempOffsetY = -4.0;
+                            this.tempHudScale = 1.15;
+                        }
+                ).bounds(rightCol, startY, btnWidth, btnHeight).build());
+            }
+            case VISUALS_3D -> {
+                // [アイコン・3D・画面エフェクト]
+                // 1. ☠ ヘッドショットアイコン
+                this.addRenderableWidget(Button.builder(getHeadshotIconText(), btn -> {
+                    this.tempShowHeadshotIcon = !this.tempShowHeadshotIcon;
+                    btn.setMessage(getHeadshotIconText());
+                }).bounds(leftCol, startY, btnWidth, btnHeight).build());
+
+                // 2. ★ クリティカルアイコン
+                this.addRenderableWidget(Button.builder(getCriticalIconText(), btn -> {
+                    this.tempShowCriticalIcon = !this.tempShowCriticalIcon;
+                    btn.setMessage(getCriticalIconText());
+                }).bounds(leftCol, startY + gap, btnWidth, btnHeight).build());
+
+                // 3. 🗡 防具貫通(AP)アイコン
+                this.addRenderableWidget(Button.builder(getArmorPiercingIconText(), btn -> {
+                    this.tempShowArmorPiercingIcon = !this.tempShowArmorPiercingIcon;
+                    btn.setMessage(getArmorPiercingIconText());
+                }).bounds(leftCol, startY + gap * 2, btnWidth, btnHeight).build());
+
+                // 4. 🛡️ 防具軽減アイコン
+                this.addRenderableWidget(Button.builder(getArmorDamageIconText(), btn -> {
+                    this.tempShowArmorDamageIcon = !this.tempShowArmorDamageIcon;
+                    btn.setMessage(getArmorDamageIconText());
+                }).bounds(leftCol, startY + gap * 3, btnWidth, btnHeight).build());
+
+                // 5. 3D画面上同一サイズ
+                this.addRenderableWidget(Button.builder(getConstantSizeText(), btn -> {
+                    this.tempEnableConstantSize = !this.tempEnableConstantSize;
+                    btn.setMessage(getConstantSizeText());
+                }).bounds(rightCol, startY, btnWidth, btnHeight).build());
+
+                // 6. 3D壁越し透過X-Ray
+                this.addRenderableWidget(Button.builder(getXRayText(), btn -> {
+                    this.tempEnableXRay = !this.tempEnableXRay;
+                    btn.setMessage(getXRayText());
+                }).bounds(rightCol, startY + gap, btnWidth, btnHeight).build());
+
+                // 7. 被ダメ画面赤色効果トグル
+                this.addRenderableWidget(Button.builder(getDamageVignetteText(), btn -> {
+                    this.tempDamageVignetteEnabled = !this.tempDamageVignetteEnabled;
+                    btn.setMessage(getDamageVignetteText());
+                }).bounds(rightCol, startY + gap * 2, btnWidth, btnHeight).build());
+
+                // 8. 赤色効果 濃さ [-] [+]
+                this.addRenderableWidget(Button.builder(Component.literal("Red -"), btn -> {
+                    this.tempDamageVignetteOpacity = Math.max(0.0, Math.round((this.tempDamageVignetteOpacity - 0.05) * 100.0) / 100.0);
+                }).bounds(rightCol, startY + gap * 3, 72, btnHeight).build());
+
+                this.addRenderableWidget(Button.builder(Component.literal("Red +"), btn -> {
+                    this.tempDamageVignetteOpacity = Math.min(1.0, Math.round((this.tempDamageVignetteOpacity + 0.05) * 100.0) / 100.0);
+                }).bounds(rightCol + 78, startY + gap * 3, 72, btnHeight).build());
+            }
+            case SOUNDS -> {
+                // [サウンド設定]
+                // 1. ヒット効果音
+                this.addRenderableWidget(Button.builder(getHitSoundText(), btn -> {
+                    this.tempHitSoundEnabled = !this.tempHitSoundEnabled;
+                    btn.setMessage(getHitSoundText());
+                }).bounds(leftCol, startY, btnWidth, btnHeight).build());
+
+                // 2. ヒット音量 [-] [+]
+                this.addRenderableWidget(Button.builder(Component.literal("HitVol -"), btn -> {
+                    this.tempHitSoundVolume = Math.max(0.0, Math.round((this.tempHitSoundVolume - 0.1) * 10.0) / 10.0);
+                }).bounds(leftCol, startY + gap, 72, btnHeight).build());
+
+                this.addRenderableWidget(Button.builder(Component.literal("HitVol +"), btn -> {
+                    this.tempHitSoundVolume = Math.min(1.0, Math.round((this.tempHitSoundVolume + 0.1) * 10.0) / 10.0);
+                }).bounds(leftCol + 78, startY + gap, 72, btnHeight).build());
+
+                // 3. ヘッドショット高音チャイム
+                this.addRenderableWidget(Button.builder(getHeadshotSoundText(), btn -> {
+                    this.tempHeadshotSoundEnabled = !this.tempHeadshotSoundEnabled;
+                    btn.setMessage(getHeadshotSoundText());
+                }).bounds(leftCol, startY + gap * 2, btnWidth, btnHeight).build());
+
+                // 4. キル確定音
+                this.addRenderableWidget(Button.builder(getKillSoundText(), btn -> {
+                    this.tempKillSoundEnabled = !this.tempKillSoundEnabled;
+                    btn.setMessage(getKillSoundText());
+                }).bounds(rightCol, startY, btnWidth, btnHeight).build());
+
+                // 5. キル音量 [-] [+]
+                this.addRenderableWidget(Button.builder(Component.literal("KillVol -"), btn -> {
+                    this.tempKillSoundVolume = Math.max(0.0, Math.round((this.tempKillSoundVolume - 0.1) * 10.0) / 10.0);
+                }).bounds(rightCol, startY + gap, 72, btnHeight).build());
+
+                this.addRenderableWidget(Button.builder(Component.literal("KillVol +"), btn -> {
+                    this.tempKillSoundVolume = Math.min(1.0, Math.round((this.tempKillSoundVolume + 0.1) * 10.0) / 10.0);
+                }).bounds(rightCol + 78, startY + gap, 72, btnHeight).build());
+            }
+        }
     }
 
     private Component getEnabledText() {
@@ -270,6 +349,9 @@ public class IndicatorConfigScreen extends Screen {
     }
     private Component getHitSoundText() {
         return Component.translatable("taczindicator.gui.hit_sound", this.tempHitSoundEnabled ? "§aON" : "§cOFF");
+    }
+    private Component getHeadshotSoundText() {
+        return Component.translatable("taczindicator.gui.headshot_sound", this.tempHeadshotSoundEnabled ? "§aON" : "§cOFF");
     }
     private Component getKillSoundText() {
         return Component.translatable("taczindicator.gui.kill_sound", this.tempKillSoundEnabled ? "§aON" : "§cOFF");
@@ -307,9 +389,8 @@ public class IndicatorConfigScreen extends Screen {
         int centerX = this.width / 2;
         int centerY = this.height / 2;
 
-        // タイトル & 操作案内
-        guiGraphics.drawCenteredString(this.font, this.title, centerX, 5, 0xFFFFFF);
-        guiGraphics.drawCenteredString(this.font, Component.translatable("taczindicator.gui.drag_instruction"), centerX, 16, 0xAAAAAA);
+        // タイトル
+        guiGraphics.drawCenteredString(this.font, this.title, centerX, 6, 0xFFFFFF);
 
         // 中央クロスヘア
         guiGraphics.drawString(this.font, "+", centerX - this.font.width("+") / 2, centerY - this.font.lineHeight / 2, 0xFFFFFF, false);
@@ -358,9 +439,23 @@ public class IndicatorConfigScreen extends Screen {
             guiGraphics.pose().popPose();
         }
 
-        // スケール & 座標 & ヴィネット濃さ & スクロール上限表示
-        String infoStr = String.format(java.util.Locale.ROOT, "Scale: %.1fx | Pos: (%.0f, %.0f) | Red: %.2f | Scrolled Max: %d",
-                this.tempHudScale, this.tempOffsetX, this.tempOffsetY, this.tempDamageVignetteOpacity, this.tempMaxScrolledIndicators);
+        // 下部情報ステータス行
+        String infoStr;
+        if (this.currentTab == ConfigTab.SOUNDS) {
+            infoStr = String.format(java.util.Locale.ROOT, "Hit Sound: %s (%.1f) | Kill Sound: %s (%.1f)",
+                    this.tempHitSoundEnabled ? "ON" : "OFF", this.tempHitSoundVolume,
+                    this.tempKillSoundEnabled ? "ON" : "OFF", this.tempKillSoundVolume);
+        } else if (this.currentTab == ConfigTab.HUD_LAYOUT) {
+            infoStr = String.format(java.util.Locale.ROOT, "Scale: %.1fx | Pos: (%.0f, %.0f) | Max Scrolled: %d",
+                    this.tempHudScale, this.tempOffsetX, this.tempOffsetY, this.tempMaxScrolledIndicators);
+        } else if (this.currentTab == ConfigTab.VISUALS_3D) {
+            infoStr = String.format(java.util.Locale.ROOT, "Red Vignette: %s (%.2f) | 3D Equal: %s",
+                    this.tempDamageVignetteEnabled ? "ON" : "OFF", this.tempDamageVignetteOpacity,
+                    this.tempEnableConstantSize ? "ON" : "OFF");
+        } else {
+            infoStr = String.format(java.util.Locale.ROOT, "Mode: %s | Combo: %s | Only Player: %s",
+                    this.tempRenderMode.name(), this.tempConsecutiveMode.name(), this.tempOnlyPlayerDamage ? "ON" : "OFF");
+        }
         guiGraphics.drawCenteredString(this.font, infoStr, centerX, this.height - 38, 0xDDDDDD);
     }
 
@@ -405,22 +500,26 @@ public class IndicatorConfigScreen extends Screen {
         IndicatorConfig.CLIENT.consecutiveMode.set(this.tempConsecutiveMode);
         IndicatorConfig.CLIENT.showKillAlert.set(this.tempShowKillAlert);
         IndicatorConfig.CLIENT.showHitCount.set(this.tempShowHitCount);
+
+        IndicatorConfig.CLIENT.hudScale.set(this.tempHudScale);
+        IndicatorConfig.CLIENT.crosshairOffsetX.set(this.tempOffsetX);
+        IndicatorConfig.CLIENT.crosshairOffsetY.set(this.tempOffsetY);
+        IndicatorConfig.CLIENT.maxScrolledIndicators.set(this.tempMaxScrolledIndicators);
+
         IndicatorConfig.CLIENT.showHeadshotIcon.set(this.tempShowHeadshotIcon);
         IndicatorConfig.CLIENT.showCriticalIcon.set(this.tempShowCriticalIcon);
         IndicatorConfig.CLIENT.showArmorPiercingIcon.set(this.tempShowArmorPiercingIcon);
         IndicatorConfig.CLIENT.showArmorDamageIcon.set(this.tempShowArmorDamageIcon);
         IndicatorConfig.CLIENT.enableConstantSize.set(this.tempEnableConstantSize);
         IndicatorConfig.CLIENT.enableXRay.set(this.tempEnableXRay);
-        IndicatorConfig.CLIENT.hudScale.set(this.tempHudScale);
-        IndicatorConfig.CLIENT.crosshairOffsetX.set(this.tempOffsetX);
-        IndicatorConfig.CLIENT.crosshairOffsetY.set(this.tempOffsetY);
-        IndicatorConfig.CLIENT.maxScrolledIndicators.set(this.tempMaxScrolledIndicators);
-
         IndicatorConfig.CLIENT.enableDamageVignette.set(this.tempDamageVignetteEnabled);
         IndicatorConfig.CLIENT.damageVignetteOpacity.set(this.tempDamageVignetteOpacity);
 
         IndicatorConfig.CLIENT.enableHitSound.set(this.tempHitSoundEnabled);
+        IndicatorConfig.CLIENT.hitSoundVolume.set(this.tempHitSoundVolume);
+        IndicatorConfig.CLIENT.enableHeadshotSound.set(this.tempHeadshotSoundEnabled);
         IndicatorConfig.CLIENT.enableKillSound.set(this.tempKillSoundEnabled);
+        IndicatorConfig.CLIENT.killSoundVolume.set(this.tempKillSoundVolume);
 
         IndicatorConfig.saveConfig();
 

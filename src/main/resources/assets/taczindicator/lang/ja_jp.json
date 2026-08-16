@@ -3,6 +3,11 @@
   "key.taczindicator.open_config": "設定画面を開く",
 
   "taczindicator.gui.title": "TaCZ Indicator 設定",
+  "taczindicator.gui.tab.general": "全般・表示",
+  "taczindicator.gui.tab.hud": "HUD・配置",
+  "taczindicator.gui.tab.visuals": "アイコン・3D・効果",
+  "taczindicator.gui.tab.sounds": "サウンド設定",
+
   "taczindicator.gui.category.general": "全般設定",
   "taczindicator.gui.category.display": "表示・コンボ",
   "taczindicator.gui.category.hud": "HUD配置調整",
@@ -26,6 +31,9 @@
   "taczindicator.gui.vignette_opacity": "赤色効果の濃さ: %.2f",
   "taczindicator.gui.hit_sound": "ヒット効果音: %s",
   "taczindicator.gui.kill_sound": "キル確定音: %s",
+  "taczindicator.gui.headshot_sound": "HS高音チャイム: %s",
+  "taczindicator.gui.hit_volume": "ヒット音量: %.1f",
+  "taczindicator.gui.kill_volume": "キル音量: %.1f",
   "taczindicator.gui.max_scrolled": "スクロール上限: %d件",
   "taczindicator.gui.constant_size": "3D等倍サイズ: %s",
   "taczindicator.gui.xray": "3D壁越し透過: %s",
