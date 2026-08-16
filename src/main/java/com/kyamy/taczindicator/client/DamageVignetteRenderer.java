@@ -2,8 +2,10 @@ package com.kyamy.taczindicator.client;
 
 import com.kyamy.taczindicator.TaCZIndicatorMod;
 import com.kyamy.taczindicator.config.IndicatorConfig;
+import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RenderGuiEvent;
 import net.minecraftforge.client.event.RenderGuiOverlayEvent;
@@ -14,15 +16,23 @@ import net.minecraftforge.fml.common.Mod;
 
 /**
  * プレイヤー被ダメージ時の画面赤色効果（ダメージヴィネット・画面フラッシュ）レンダラー
- * 設定による完全なON/OFF、不透明度、持続時間、カラーカスタマイズを完備
+ * バニラVignetteテクスチャを用いた完全な円形・楕円スムーズフェード、設定プレビュー、およびカラーカスタマイズを完備
  */
 @Mod.EventBusSubscriber(modid = TaCZIndicatorMod.MOD_ID, value = Dist.CLIENT)
 public class DamageVignetteRenderer {
+
+    private static final ResourceLocation VIGNETTE_LOCATION = new ResourceLocation("textures/misc/vignette.png");
 
     private static int vignetteTicksRemaining = 0;
     private static int maxVignetteDuration = 15;
     private static float currentDamageIntensity = 1.0f;
     private static long lastRenderTime = 0;
+
+    // 設定画面用のプレビューアニメーション管理
+    private static int previewTicksRemaining = 0;
+    private static int previewMaxDuration = 20;
+    private static float previewOpacity = 0.5f;
+    private static int previewColor = 0xFF0000;
 
     /**
      * プレイヤーが被ダメージした際にヴィネット効果を開始
@@ -46,6 +56,20 @@ public class DamageVignetteRenderer {
     }
 
     /**
+     * 設定画面用: 指定した不透明度・色でプレビューフェードアニメーションをトリガー
+     */
+    public static void triggerPreview(double opacity, int color, int durationTicks) {
+        previewMaxDuration = Math.max(5, durationTicks);
+        previewTicksRemaining = previewMaxDuration;
+        previewOpacity = (float) opacity;
+        previewColor = color;
+    }
+
+    public static void triggerPreview(double opacity, int color) {
+        triggerPreview(opacity, color, 20);
+    }
+
+    /**
      * クライアントTick更新
      */
     @SubscribeEvent
@@ -53,6 +77,9 @@ public class DamageVignetteRenderer {
         if (event.phase == TickEvent.Phase.END) {
             if (vignetteTicksRemaining > 0) {
                 vignetteTicksRemaining--;
+            }
+            if (previewTicksRemaining > 0) {
+                previewTicksRemaining--;
             }
         }
     }
@@ -103,50 +130,58 @@ public class DamageVignetteRenderer {
     }
 
     /**
-     * 画面四隅からの美しいグラデーションヴィネットおよび全体フラッシュを描画
+     * バニラVignetteテクスチャを用いた美しい円形グラデーションヴィネットおよび画面フラッシュを描画
      */
     public static void drawVignetteOverlay(GuiGraphics guiGraphics, int width, int height, float alpha, int rgb) {
-        int r = (rgb >> 16) & 0xFF;
-        int g = (rgb >> 8) & 0xFF;
-        int b = rgb & 0xFF;
+        if (alpha <= 0.005f) {
+            return;
+        }
 
-        int alphaMax = Math.max(1, Math.min(255, (int) (alpha * 255.0f)));
-        int alphaMin = 0;
-
-        int edgeColor = (alphaMax << 24) | (r << 16) | (g << 8) | b;
-        int transparentColor = (alphaMin << 24) | (r << 16) | (g << 8) | b;
+        float r = ((rgb >> 16) & 0xFF) / 255.0f;
+        float g = ((rgb >> 8) & 0xFF) / 255.0f;
+        float b = (rgb & 0xFF) / 255.0f;
 
         // 画面全体の極薄フラッシュ
-        int flashAlpha = Math.max(1, (int) (alpha * 0.18f * 255.0f));
-        int flashColor = (flashAlpha << 24) | (r << 16) | (g << 8) | b;
-        guiGraphics.fill(0, 0, width, height, flashColor);
+        int flashAlpha = Math.max(0, Math.min(255, (int) (alpha * 0.15f * 255.0f)));
+        if (flashAlpha > 0) {
+            int flashColor = (flashAlpha << 24) | (((int) (r * 255)) << 16) | (((int) (g * 255)) << 8) | ((int) (b * 255));
+            guiGraphics.fill(0, 0, width, height, flashColor);
+        }
 
-        // 上下左右の境界グラデーション
-        int vertBorder = Math.max(20, height / 5);
-        int horizBorder = Math.max(20, width / 5);
-
-        // 上端グラデーション (上 -> 中央)
-        guiGraphics.fillGradient(0, 0, width, vertBorder, edgeColor, transparentColor);
-
-        // 下端グラデーション (中央 -> 下)
-        guiGraphics.fillGradient(0, height - vertBorder, width, height, transparentColor, edgeColor);
-
-        // 左端グラデーション (左 -> 中央)
-        guiGraphics.fillGradient(0, 0, horizBorder, height, edgeColor, transparentColor);
-
-        // 右端グラデーション (中央 -> 右)
-        guiGraphics.fillGradient(width - horizBorder, 0, width, height, transparentColor, edgeColor);
+        // バニラ準拠の完全な円形・楕円グラデーションヴィネット
+        RenderSystem.disableDepthTest();
+        RenderSystem.depthMask(false);
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.setShaderColor(r, g, b, Math.min(1.0f, alpha));
+        guiGraphics.blit(VIGNETTE_LOCATION, 0, 0, -90, 0.0F, 0.0F, width, height, width, height);
+        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+        RenderSystem.depthMask(true);
+        RenderSystem.enableDepthTest();
     }
 
     /**
-     * 設定GUI用のプレビュー描画
+     * 設定GUI用のプレビュー描画（パルスフェードアニメーション対応）
      */
-    public static void renderPreview(GuiGraphics guiGraphics, int width, int height, double opacity, int rgb) {
-        if (opacity <= 0.01) return;
-        drawVignetteOverlay(guiGraphics, width, height, (float) opacity, rgb);
+    public static void renderPreview(GuiGraphics guiGraphics, int width, int height, double configuredOpacity, int rgb, float partialTick) {
+        if (configuredOpacity <= 0.005) return;
+
+        float alpha;
+        if (previewTicksRemaining > 0) {
+            // トリガーされた動的フェードアニメーション
+            float progress = (previewTicksRemaining - partialTick) / (float) previewMaxDuration;
+            progress = Math.max(0.0f, Math.min(1.0f, progress));
+            alpha = progress * progress * previewOpacity;
+        } else {
+            // アイドル時の淡い常時プレビュー（設定値の40%の薄さで穏やかに表示）
+            alpha = (float) (configuredOpacity * 0.40);
+        }
+
+        drawVignetteOverlay(guiGraphics, width, height, alpha, rgb);
     }
 
     public static void reset() {
         vignetteTicksRemaining = 0;
+        previewTicksRemaining = 0;
     }
 }

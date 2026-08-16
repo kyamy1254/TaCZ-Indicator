@@ -146,34 +146,44 @@ public class CombatStatsScreen extends Screen {
         int topRowY = 44;
         int bottomRowY = topRowY + cardHeight + 6;
 
+        String formattedTotalDmg = String.format(Locale.ROOT, "%,.1f", stats.getTotalDamage());
+
         // Card 1: ダメージ & DPS分析 (左上)
-        renderCard(guiGraphics, marginX, topRowY, cardWidth, cardHeight, "§6§l[ ⚔ ダメージ & DPS分析 ]", new String[]{
-                String.format(Locale.ROOT, "§f総与ダメージ: §a%,.1f", stats.getTotalDamage()),
-                String.format(Locale.ROOT, "§f瞬間DPS (3秒): §e%.1f §7| §fピーク: §6%.1f", stats.getDPS(), stats.getPeakDps()),
-                String.format(Locale.ROOT, "§f平均DPS: §e%.1f", stats.getAverageDPS())
-        });
+        renderCard(guiGraphics, marginX, topRowY, cardWidth, cardHeight,
+                Component.translatable("taczindicator.stats.card.damage_dps").getString(),
+                new String[]{
+                        Component.translatable("taczindicator.stats.label.total_damage", formattedTotalDmg).getString(),
+                        Component.translatable("taczindicator.stats.label.dps_peak", stats.getDPS(), stats.getPeakDps()).getString(),
+                        Component.translatable("taczindicator.stats.label.avg_dps", stats.getAverageDPS()).getString()
+                });
 
         // Card 2: 命中 & 射撃分析 (右上)
-        renderCard(guiGraphics, marginX + cardWidth + cardGap, topRowY, cardWidth, cardHeight, "§b§l[ 🎯 命中 & 射撃分析 ]", new String[]{
-                String.format(Locale.ROOT, "§f総命中数: §b%d 発", stats.getTotalHits()),
-                String.format(Locale.ROOT, "§fヘッドショット: §c☠ %d 発 §7(§c%.1f%%§7)", stats.getTotalHeadshots(), stats.getHeadshotRate()),
-                String.format(Locale.ROOT, "§fクリティカル: §6★ %d 発 §7(§6%.1f%%§7)", stats.getTotalCriticals(), stats.getCriticalRate())
-        });
+        renderCard(guiGraphics, marginX + cardWidth + cardGap, topRowY, cardWidth, cardHeight,
+                Component.translatable("taczindicator.stats.card.hit_analysis").getString(),
+                new String[]{
+                        Component.translatable("taczindicator.stats.label.total_hits", stats.getTotalHits()).getString(),
+                        Component.translatable("taczindicator.stats.label.headshots", stats.getTotalHeadshots(), stats.getHeadshotRate()).getString(),
+                        Component.translatable("taczindicator.stats.label.criticals", stats.getTotalCriticals(), stats.getCriticalRate()).getString()
+                });
 
         // Card 3: 弾薬 & 装甲貫通 (左下)
         long combatSec = stats.getTotalCombatDurationMs() / 1000L;
-        renderCard(guiGraphics, marginX, bottomRowY, cardWidth, cardHeight, "§d§l[ \uE001 装甲貫通 & 単発火力 ]", new String[]{
-                String.format(Locale.ROOT, "§f防具貫通(AP)弾: §f\uE002 %d 発 §7| §f防具軽減: §b\uE001 %d 発", stats.getTotalArmorPiercing(), stats.getTotalArmorDamage()),
-                String.format(Locale.ROOT, "§f最大単発ダメージ: §d%.1f", stats.getMaxSingleDamage()),
-                String.format(Locale.ROOT, "§f実戦闘時間: §f%02d:%02d", combatSec / 60, combatSec % 60)
-        });
+        renderCard(guiGraphics, marginX, bottomRowY, cardWidth, cardHeight,
+                Component.translatable("taczindicator.stats.card.armor_penetration").getString(),
+                new String[]{
+                        Component.translatable("taczindicator.stats.label.ap_armor", stats.getTotalArmorPiercing(), stats.getTotalArmorDamage()).getString(),
+                        Component.translatable("taczindicator.stats.label.max_damage", stats.getMaxSingleDamage()).getString(),
+                        Component.translatable("taczindicator.stats.label.combat_time", combatSec / 60, combatSec % 60).getString()
+                });
 
         // Card 4: キル記録 & 狙撃 (右下)
-        renderCard(guiGraphics, marginX + cardWidth + cardGap, bottomRowY, cardWidth, cardHeight, "§c§l[ ☠ キル記録 & 狙撃距離 ]", new String[]{
-                String.format(Locale.ROOT, "§f総キル数: §c%d 体", stats.getTotalKills()),
-                String.format(Locale.ROOT, "§f最長キル距離: §e%d m", stats.getMaxKillDistance()),
-                String.format(Locale.ROOT, "§f平均キル距離: §7%.1f m", stats.getAverageKillDistance())
-        });
+        renderCard(guiGraphics, marginX + cardWidth + cardGap, bottomRowY, cardWidth, cardHeight,
+                Component.translatable("taczindicator.stats.card.kills_distance").getString(),
+                new String[]{
+                        Component.translatable("taczindicator.stats.label.total_kills", stats.getTotalKills()).getString(),
+                        Component.translatable("taczindicator.stats.label.max_distance", stats.getMaxKillDistance()).getString(),
+                        Component.translatable("taczindicator.stats.label.avg_distance", stats.getAverageKillDistance()).getString()
+                });
 
         // 下部: キルログ抜粋プレビュー
         int logStartY = bottomRowY + cardHeight + 6;
@@ -230,19 +240,19 @@ public class CombatStatsScreen extends Screen {
             guiGraphics.fill(marginX + 4, cardY, marginX + logWidth - 4, cardY + cardItemHeight - 2, 0x55182030);
             guiGraphics.renderOutline(marginX + 4, cardY, logWidth - 8, cardItemHeight - 2, 0x6600A0E9);
 
+            String formattedDmg = String.format(Locale.ROOT, "%,.1f", w.getTotalDamage());
+
             // 行1: 武器名 & ダメージ & キル
-            String line1 = String.format(Locale.ROOT, "§e§l[ 🔫 %s ]  §f総ダメージ: §a%,.1f §7| §fキル数: §c%d 体",
-                    w.getWeaponName(), w.getTotalDamage(), w.getTotalKills());
+            String line1 = Component.translatable("taczindicator.stats.weapon.line1", w.getWeaponName(), formattedDmg, w.getTotalKills()).getString();
             guiGraphics.drawString(this.font, line1, marginX + 8, cardY + 3, 0xFFFFFF, false);
 
             // 行2: 命中数、HS率、AP
-            String line2 = String.format(Locale.ROOT, "§f命中数: §b%d 発 §7(§c☠ HS: %d発 / %.1f%%§7) §7| §6★ Crit: %d §7| §f\uE002 AP: %d",
-                    w.getTotalHits(), w.getTotalHeadshots(), w.getHeadshotRate(), w.getTotalCriticals(), w.getTotalArmorPiercing());
+            String line2 = Component.translatable("taczindicator.stats.weapon.line2",
+                    w.getTotalHits(), w.getTotalHeadshots(), w.getHeadshotRate(), w.getTotalCriticals(), w.getTotalArmorPiercing()).getString();
             guiGraphics.drawString(this.font, line2, marginX + 12, cardY + 14, 0xDDDDDD, false);
 
             // 行3: 最大単発 & 最長キル
-            String line3 = String.format(Locale.ROOT, "§7最大単発: §d%.1f dmg §7| 最長キル距離: §e%d m",
-                    w.getMaxSingleDamage(), w.getMaxKillDistance());
+            String line3 = Component.translatable("taczindicator.stats.weapon.line3", w.getMaxSingleDamage(), w.getMaxKillDistance()).getString();
             guiGraphics.drawString(this.font, line3, marginX + 12, cardY + 24, 0xAAAAAA, false);
         }
 

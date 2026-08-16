@@ -66,6 +66,7 @@ public class IndicatorConfigScreen extends Screen {
     private boolean tempEnableXRay;
     private boolean tempDamageVignetteEnabled;
     private double tempDamageVignetteOpacity;
+    private int tempDamageVignetteColor;
 
     // サウンド設定
     private boolean tempHitSoundEnabled;
@@ -107,6 +108,7 @@ public class IndicatorConfigScreen extends Screen {
         this.tempEnableXRay = IndicatorConfig.isXRay();
         this.tempDamageVignetteEnabled = IndicatorConfig.isDamageVignetteEnabled();
         this.tempDamageVignetteOpacity = IndicatorConfig.getDamageVignetteOpacity();
+        this.tempDamageVignetteColor = IndicatorConfig.getDamageVignetteColor();
 
         this.tempHitSoundEnabled = IndicatorConfig.isHitSoundEnabled();
         this.tempHitSoundVolume = IndicatorConfig.getHitSoundVolume();
@@ -340,16 +342,26 @@ public class IndicatorConfigScreen extends Screen {
                 this.addRenderableWidget(Button.builder(getDamageVignetteText(), btn -> {
                     this.tempDamageVignetteEnabled = !this.tempDamageVignetteEnabled;
                     btn.setMessage(getDamageVignetteText());
+                    if (this.tempDamageVignetteEnabled) {
+                        DamageVignetteRenderer.triggerPreview(this.tempDamageVignetteOpacity, this.tempDamageVignetteColor, 25);
+                    }
                 }).bounds(rightCol, startY + gap * 2, btnWidth, btnHeight).build());
 
                 // 9. 赤色効果 濃さ [-] [+]
                 this.addRenderableWidget(Button.builder(Component.literal("Red -"), btn -> {
                     this.tempDamageVignetteOpacity = Math.max(0.0, Math.round((this.tempDamageVignetteOpacity - 0.05) * 100.0) / 100.0);
+                    DamageVignetteRenderer.triggerPreview(this.tempDamageVignetteOpacity, this.tempDamageVignetteColor, 25);
                 }).bounds(rightCol, startY + gap * 3, 72, btnHeight).build());
 
                 this.addRenderableWidget(Button.builder(Component.literal("Red +"), btn -> {
                     this.tempDamageVignetteOpacity = Math.min(1.0, Math.round((this.tempDamageVignetteOpacity + 0.05) * 100.0) / 100.0);
+                    DamageVignetteRenderer.triggerPreview(this.tempDamageVignetteOpacity, this.tempDamageVignetteColor, 25);
                 }).bounds(rightCol + 78, startY + gap * 3, 72, btnHeight).build());
+
+                // 10. 赤色効果フェード テストボタン
+                this.addRenderableWidget(Button.builder(Component.literal("💥 Test Fade"), btn -> {
+                    DamageVignetteRenderer.triggerPreview(this.tempDamageVignetteOpacity, this.tempDamageVignetteColor, 25);
+                }).bounds(rightCol, startY + gap * 4, btnWidth, btnHeight).build());
             }
             case SOUNDS -> {
                 // [サウンド設定]
@@ -461,8 +473,8 @@ public class IndicatorConfigScreen extends Screen {
         this.renderBackground(guiGraphics);
 
         // 被ダメージ赤色効果のプレビュー描画 (有効時)
-        if (this.tempDamageVignetteEnabled && this.tempDamageVignetteOpacity > 0.01) {
-            DamageVignetteRenderer.renderPreview(guiGraphics, this.width, this.height, this.tempDamageVignetteOpacity * 0.7, 0xFF0000);
+        if (this.tempDamageVignetteEnabled && this.tempDamageVignetteOpacity > 0.005) {
+            DamageVignetteRenderer.renderPreview(guiGraphics, this.width, this.height, this.tempDamageVignetteOpacity, this.tempDamageVignetteColor, partialTick);
         }
 
         super.render(guiGraphics, mouseX, mouseY, partialTick);
