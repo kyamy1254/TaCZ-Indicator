@@ -116,4 +116,65 @@ public class CombatStatsOverlay {
 
         poseStack.popPose();
     }
+
+    /**
+     * 設定画面用のDPSメータープレビューカード描画
+     */
+    public static void renderPreviewCard(GuiGraphics guiGraphics, IndicatorConfig.CombatStatsPosition pos, double scale, int screenWidth, int screenHeight) {
+        Minecraft mc = Minecraft.getInstance();
+        Font font = mc.font;
+        int cardWidth = 142;
+        int cardHeight = 32;
+
+        int posX;
+        int posY;
+        switch (pos) {
+            case TOP_LEFT -> {
+                posX = 8;
+                posY = 8;
+            }
+            case BOTTOM_LEFT -> {
+                posX = 8;
+                posY = screenHeight - (int) (cardHeight * scale) - 8;
+            }
+            case BOTTOM_RIGHT -> {
+                posX = screenWidth - (int) (cardWidth * scale) - 8;
+                posY = screenHeight - (int) (cardHeight * scale) - 8;
+            }
+            case TOP_RIGHT -> {
+                posX = screenWidth - (int) (cardWidth * scale) - 8;
+                posY = 8;
+            }
+            default -> {
+                posX = screenWidth - (int) (cardWidth * scale) - 8;
+                posY = 8;
+            }
+        }
+
+        PoseStack poseStack = guiGraphics.pose();
+        poseStack.pushPose();
+        poseStack.translate(posX, posY, 0.0);
+        poseStack.scale((float) scale, (float) scale, 1.0f);
+
+        int bgColor = 0xAA101520;
+        int borderColor = 0xFF00A0E9;
+
+        // 半透明ダークカード背景
+        guiGraphics.fill(0, 0, cardWidth, cardHeight, bgColor);
+        guiGraphics.renderOutline(0, 0, cardWidth, cardHeight, borderColor);
+
+        // タイトル
+        String header = "§b§l[ COMBAT STATS ]";
+        guiGraphics.drawString(font, header, 6, 4, 0xFF00F0FF, false);
+
+        // 1行目: DPS & Total Damage (サンプル)
+        String line1 = "§fDPS: §e145.2 §7| §fTotal: §a3,450";
+        guiGraphics.drawString(font, line1, 6, 14, 0xFFFFFFFF, false);
+
+        // 2行目: Hits & HS% & Kills (サンプル)
+        String line2 = "§fHits: §b28 §7(§c☠32%§7) §7| §fK: §c6";
+        guiGraphics.drawString(font, line2, 6, 23, 0xFFEEEEEE, false);
+
+        poseStack.popPose();
+    }
 }

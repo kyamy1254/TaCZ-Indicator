@@ -112,7 +112,20 @@ Minecraft Forge 1.20.1 環境において、TaCZ (Timeless and Classics Zero) �
 | `showArmorDamageIcon` | boolean | `true` | \uE001 防具軽減表示の有無 |
 | `decimalPlaces` | int | `1` | ダメージ値の小数点表示桁数 |
 
-### 4.2 戦闘統計・DPS設定 (`[combat_stats]`)
+### 4.2 画面赤色効果・ヴィネット設定 (`[damage_vignette]`, `[low_hp_vignette]`)
+
+| 項目名 | 型 | デフォルト値 | 説明 |
+| :--- | :--- | :--- | :--- |
+| `enableDamageVignette` | boolean | `true` | 被ダメージ時の赤色ヴィネット効果を有効化 |
+| `damageVignetteOpacity` | double | `0.45` | 被ダメージ赤色効果の基準不透明度 (0.0〜1.0) |
+| `damageVignetteDurationTicks` | int | `20` | 被ダメージ赤色効果の持続・フェード時間 (20Ticks = 1.0秒) |
+| `enableLowHpVignette` | boolean | `true` | 瀕死時 (Low HP) の赤色ヴィネット効果を有効化 |
+| `lowHpThreshold` | double | `0.30` | 瀕死判定の体力割合閾値 (0.30 = 最大HPの30%以下 / ハート3個以下) |
+| `lowHpVignetteOpacity` | double | `0.45` | 瀕死時ヴィネット効果の基準不透明度 (0.0〜1.0) |
+| `enableLowHpHeartbeat` | boolean | `true` | 瀕死時に心臓の鼓動のような脈動アニメーション（パルス）を適用 |
+| `lowHpHeartbeatSpeed` | double | `1.0` | 瀕死時鼓動アニメーションの脈動速度倍率 (0.2〜3.0) |
+
+### 4.3 戦闘統計・DPS設定 (`[combat_stats]`)
 
 | 項目名 | 型 | デフォルト値 | 説明 |
 | :--- | :--- | :--- | :--- |
@@ -120,7 +133,7 @@ Minecraft Forge 1.20.1 環境において、TaCZ (Timeless and Classics Zero) �
 | `combatStatsPosition` | enum | `TOP_RIGHT` | HUD配置位置 (`TOP_LEFT`, `TOP_RIGHT`, `BOTTOM_LEFT`, `BOTTOM_RIGHT`) |
 | `combatStatsScale` | double | `1.0` | 戦闘統計カードの拡大スケール (0.5〜2.5) |
 
-### 4.3 サウンド設定 (`[sounds]`)
+### 4.4 サウンド設定 (`[sounds]`)
 
 | 項目名 | 型 | デフォルト値 | 説明 |
 | :--- | :--- | :--- | :--- |

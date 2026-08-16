@@ -33,6 +33,8 @@ public class DamageVignetteRenderer {
     private static int previewMaxDuration = 20;
     private static float previewOpacity = 0.5f;
     private static int previewColor = 0xFF0000;
+    private static boolean isPreviewLowHp = false;
+    private static double previewHeartbeatSpeed = 1.0;
 
     /**
      * プレイヤーが被ダメージした際にヴィネット効果を開始
@@ -56,17 +58,30 @@ public class DamageVignetteRenderer {
     }
 
     /**
-     * 設定画面用: 指定した不透明度・色でプレビューフェードアニメーションをトリガー
+     * 設定画面用: 被ダメ赤色フェードのプレビューをトリガー
      */
     public static void triggerPreview(double opacity, int color, int durationTicks) {
         previewMaxDuration = Math.max(5, durationTicks);
         previewTicksRemaining = previewMaxDuration;
         previewOpacity = (float) opacity;
         previewColor = color;
+        isPreviewLowHp = false;
     }
 
     public static void triggerPreview(double opacity, int color) {
         triggerPreview(opacity, color, 20);
+    }
+
+    /**
+     * 設定画面用: 瀕死時(Low HP)鼓動ヴィネットのプレビューをトリガー (約4秒間)
+     */
+    public static void triggerLowHpPreview(double opacity, int color, double heartbeatSpeed) {
+        previewMaxDuration = 80;
+        previewTicksRemaining = 80;
+        previewOpacity = (float) opacity;
+        previewColor = color;
+        previewHeartbeatSpeed = heartbeatSpeed;
+        isPreviewLowHp = true;
     }
 
     /**
@@ -98,10 +113,6 @@ public class DamageVignetteRenderer {
     }
 
     private static void renderVignette(GuiGraphics guiGraphics, float partialTick, int screenWidth, int screenHeight) {
-        if (!IndicatorConfig.isDamageVignetteEnabled() || vignetteTicksRemaining <= 0) {
-            return;
-        }
-
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.level == null || mc.options.hideGui) {
             return;
@@ -114,19 +125,51 @@ public class DamageVignetteRenderer {
         }
         lastRenderTime = now;
 
-        float progress = (vignetteTicksRemaining - partialTick) / (float) maxVignetteDuration;
-        progress = Math.max(0.0f, Math.min(1.0f, progress));
+        float hitAlpha = 0.0f;
+        int hitColor = IndicatorConfig.getDamageVignetteColor();
 
-        // 滑らかな減衰イージングカーブ (二乗イージング)
-        float baseOpacity = (float) IndicatorConfig.getDamageVignetteOpacity();
-        float alpha = progress * progress * baseOpacity * currentDamageIntensity;
+        // 1. 被ダメージ時の一時的フェードアウト赤色効果
+        if (IndicatorConfig.isDamageVignetteEnabled() && vignetteTicksRemaining > 0) {
+            float progress = (vignetteTicksRemaining - partialTick) / (float) maxVignetteDuration;
+            progress = Math.max(0.0f, Math.min(1.0f, progress));
+            float baseOpacity = (float) IndicatorConfig.getDamageVignetteOpacity();
+            hitAlpha = progress * progress * baseOpacity * currentDamageIntensity;
+        }
 
-        if (alpha <= 0.005f) {
+        // 2. 瀕死時 (Low HP) の持続的・心臓鼓動赤色効果
+        float lowHpAlpha = 0.0f;
+        int lowHpColor = IndicatorConfig.getLowHpVignetteColor();
+
+        if (IndicatorConfig.isLowHpVignetteEnabled() && mc.player.isAlive()) {
+            float maxHp = mc.player.getMaxHealth();
+            float currentHp = mc.player.getHealth();
+            float hpRatio = (maxHp > 0.0f) ? currentHp / maxHp : 1.0f;
+            float threshold = (float) IndicatorConfig.getLowHpThreshold();
+
+            if (hpRatio <= threshold && threshold > 0.001f) {
+                float danger = Math.max(0.0f, Math.min(1.0f, (threshold - hpRatio) / threshold));
+                float baseLowHpOpacity = (float) IndicatorConfig.getLowHpVignetteOpacity();
+
+                float pulse = 1.0f;
+                if (IndicatorConfig.isLowHpHeartbeatEnabled()) {
+                    double speed = IndicatorConfig.getLowHpHeartbeatSpeed() * (1.0 + danger * 0.7);
+                    double timeSec = (System.currentTimeMillis() % 100000L) / 1000.0 * speed * 2.2;
+                    double sinVal = Math.sin(timeSec * Math.PI * 2.0);
+                    // 0.40 〜 1.0 の間でリズミカルに脈動
+                    pulse = 0.40f + 0.60f * (float) Math.max(0.0, Math.pow(Math.max(0.0, sinVal), 2.2));
+                }
+
+                lowHpAlpha = baseLowHpOpacity * (0.65f + 0.35f * danger) * pulse;
+            }
+        }
+
+        float totalAlpha = Math.min(1.0f, hitAlpha + lowHpAlpha);
+        if (totalAlpha <= 0.005f) {
             return;
         }
 
-        int rgb = IndicatorConfig.getDamageVignetteColor();
-        drawVignetteOverlay(guiGraphics, screenWidth, screenHeight, alpha, rgb);
+        int finalColor = (hitAlpha > lowHpAlpha) ? hitColor : lowHpColor;
+        drawVignetteOverlay(guiGraphics, screenWidth, screenHeight, totalAlpha, finalColor);
     }
 
     /**
@@ -161,20 +204,29 @@ public class DamageVignetteRenderer {
     }
 
     /**
-     * 設定GUI用のプレビュー描画（パルスフェードアニメーション対応）
+     * 設定GUI用のプレビュー描画（パルスフェードアニメーション & 鼓動シミュレーション対応）
      */
     public static void renderPreview(GuiGraphics guiGraphics, int width, int height, double configuredOpacity, int rgb, float partialTick) {
-        if (configuredOpacity <= 0.005) return;
+        if (configuredOpacity <= 0.005 && previewTicksRemaining <= 0) return;
 
         float alpha;
         if (previewTicksRemaining > 0) {
-            // トリガーされた動的フェードアニメーション
-            float progress = (previewTicksRemaining - partialTick) / (float) previewMaxDuration;
-            progress = Math.max(0.0f, Math.min(1.0f, progress));
-            alpha = progress * progress * previewOpacity;
+            if (isPreviewLowHp) {
+                // 瀕死時鼓動シミュレーション
+                double speed = previewHeartbeatSpeed * 2.2;
+                double timeSec = (System.currentTimeMillis() % 100000L) / 1000.0 * speed;
+                double sinVal = Math.sin(timeSec * Math.PI * 2.0);
+                float pulse = 0.40f + 0.60f * (float) Math.max(0.0, Math.pow(Math.max(0.0, sinVal), 2.2));
+                alpha = previewOpacity * pulse;
+            } else {
+                // 被ダメ単発フェードアウト
+                float progress = (previewTicksRemaining - partialTick) / (float) previewMaxDuration;
+                progress = Math.max(0.0f, Math.min(1.0f, progress));
+                alpha = progress * progress * previewOpacity;
+            }
         } else {
-            // アイドル時の淡い常時プレビュー（設定値の40%の薄さで穏やかに表示）
-            alpha = (float) (configuredOpacity * 0.40);
+            // アイドル時の淡い常時プレビュー
+            alpha = (float) (configuredOpacity * 0.35);
         }
 
         drawVignetteOverlay(guiGraphics, width, height, alpha, rgb);

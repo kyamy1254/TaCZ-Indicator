@@ -164,6 +164,14 @@ public class IndicatorConfig {
     public static int getDamageVignetteColor() { return CLIENT.getDamageVignetteColor(); }
     public static boolean isDamageVignetteScaleWithDamage() { return CLIENT.isDamageVignetteScaleWithDamage(); }
 
+    // [low_hp_vignette]
+    public static boolean isLowHpVignetteEnabled() { return CLIENT.isLowHpVignetteEnabled(); }
+    public static double getLowHpThreshold() { return CLIENT.getLowHpThreshold(); }
+    public static double getLowHpVignetteOpacity() { return CLIENT.getLowHpVignetteOpacity(); }
+    public static boolean isLowHpHeartbeatEnabled() { return CLIENT.isLowHpHeartbeatEnabled(); }
+    public static double getLowHpHeartbeatSpeed() { return CLIENT.getLowHpHeartbeatSpeed(); }
+    public static int getLowHpVignetteColor() { return CLIENT.getLowHpVignetteColor(); }
+
     // [sounds]
     public static boolean isHitSoundEnabled() { return CLIENT.isHitSoundEnabled(); }
     public static double getHitSoundVolume() { return CLIENT.getHitSoundVolume(); }
@@ -227,6 +235,14 @@ public class IndicatorConfig {
         public final ForgeConfigSpec.IntValue damageVignetteDurationTicks;
         public final ForgeConfigSpec.IntValue damageVignetteColor;
         public final ForgeConfigSpec.BooleanValue damageVignetteScaleWithDamage;
+
+        // [low_hp_vignette] 瀕死時画面エフェクト・鼓動設定
+        public final ForgeConfigSpec.BooleanValue enableLowHpVignette;
+        public final ForgeConfigSpec.DoubleValue lowHpThreshold;
+        public final ForgeConfigSpec.DoubleValue lowHpVignetteOpacity;
+        public final ForgeConfigSpec.BooleanValue enableLowHpHeartbeat;
+        public final ForgeConfigSpec.DoubleValue lowHpHeartbeatSpeed;
+        public final ForgeConfigSpec.IntValue lowHpVignetteColor;
 
         // [sounds] サウンド設定
         public final ForgeConfigSpec.BooleanValue enableHitSound;
@@ -448,7 +464,7 @@ public class IndicatorConfig {
 
             damageVignetteDurationTicks = builder
                     .comment("被ダメージ画面効果の表示持続時間（Tick単位: 20Ticks = 1秒）")
-                    .defineInRange("damageVignetteDurationTicks", 14, 3, 60);
+                    .defineInRange("damageVignetteDurationTicks", 20, 1, 100);
 
             damageVignetteColor = builder
                     .comment("被ダメージ画面効果の色 (RGB Hex 0xRRGGBB, デフォルト: 0xFF0000)")
@@ -461,10 +477,43 @@ public class IndicatorConfig {
             builder.pop();
 
             // -------------------------------------------------------------
-            // 7. [sounds] サウンド設定
+            // 7. [low_hp_vignette] 瀕死時画面エフェクト・鼓動設定
             // -------------------------------------------------------------
             builder.comment("==================================================",
-                            " 7. サウンド設定 (Sound Effects Settings)",
+                            " 7. 瀕死時画面エフェクト・鼓動設定 (Low HP Vignette & Heartbeat Settings)",
+                            "==================================================").push("low_hp_vignette");
+
+            enableLowHpVignette = builder
+                    .comment("プレイヤーのHPが低下した際に画面端に赤いヴィネット効果を表示するかどうか")
+                    .define("enableLowHpVignette", true);
+
+            lowHpThreshold = builder
+                    .comment("瀕死時ヴィネットを発動する体力割合の閾値 (0.30 = 最大HPの30%以下 / ハート3個以下)")
+                    .defineInRange("lowHpThreshold", 0.30D, 0.05D, 0.80D);
+
+            lowHpVignetteOpacity = builder
+                    .comment("瀕死時ヴィネット効果の基準不透明度 (0.0 〜 1.0)")
+                    .defineInRange("lowHpVignetteOpacity", 0.45D, 0.0D, 1.0D);
+
+            enableLowHpHeartbeat = builder
+                    .comment("瀕死時に心臓の鼓動のような脈動アニメーション（パルス）を適用するかどうか")
+                    .define("enableLowHpHeartbeat", true);
+
+            lowHpHeartbeatSpeed = builder
+                    .comment("瀕死時鼓動アニメーションの脈動速度倍率 (1.0 = 標準)")
+                    .defineInRange("lowHpHeartbeatSpeed", 1.0D, 0.2D, 3.0D);
+
+            lowHpVignetteColor = builder
+                    .comment("瀕死時ヴィネット効果の色 (RGB Hex 0xRRGGBB, デフォルト: 0xFF0000)")
+                    .defineInRange("lowHpVignetteColor", 0xFF0000, 0, 0xFFFFFF);
+
+            builder.pop();
+
+            // -------------------------------------------------------------
+            // 8. [sounds] サウンド設定
+            // -------------------------------------------------------------
+            builder.comment("==================================================",
+                            " 8. サウンド設定 (Sound Effects Settings)",
                             "==================================================").push("sounds");
 
             enableHitSound = builder
@@ -624,13 +673,31 @@ public class IndicatorConfig {
             try { return damageVignetteOpacity != null ? damageVignetteOpacity.get() : 0.45D; } catch (Exception e) { return 0.45D; }
         }
         public int getDamageVignetteDurationTicks() {
-            try { return damageVignetteDurationTicks != null ? damageVignetteDurationTicks.get() : 14; } catch (Exception e) { return 14; }
+            try { return damageVignetteDurationTicks != null ? damageVignetteDurationTicks.get() : 20; } catch (Exception e) { return 20; }
         }
         public int getDamageVignetteColor() {
             try { return damageVignetteColor != null ? damageVignetteColor.get() : 0xFF0000; } catch (Exception e) { return 0xFF0000; }
         }
         public boolean isDamageVignetteScaleWithDamage() {
             try { return damageVignetteScaleWithDamage != null && damageVignetteScaleWithDamage.get(); } catch (Exception e) { return true; }
+        }
+        public boolean isLowHpVignetteEnabled() {
+            try { return enableLowHpVignette != null && enableLowHpVignette.get(); } catch (Exception e) { return true; }
+        }
+        public double getLowHpThreshold() {
+            try { return lowHpThreshold != null ? lowHpThreshold.get() : 0.30D; } catch (Exception e) { return 0.30D; }
+        }
+        public double getLowHpVignetteOpacity() {
+            try { return lowHpVignetteOpacity != null ? lowHpVignetteOpacity.get() : 0.45D; } catch (Exception e) { return 0.45D; }
+        }
+        public boolean isLowHpHeartbeatEnabled() {
+            try { return enableLowHpHeartbeat != null && enableLowHpHeartbeat.get(); } catch (Exception e) { return true; }
+        }
+        public double getLowHpHeartbeatSpeed() {
+            try { return lowHpHeartbeatSpeed != null ? lowHpHeartbeatSpeed.get() : 1.0D; } catch (Exception e) { return 1.0D; }
+        }
+        public int getLowHpVignetteColor() {
+            try { return lowHpVignetteColor != null ? lowHpVignetteColor.get() : 0xFF0000; } catch (Exception e) { return 0xFF0000; }
         }
         public boolean isHitSoundEnabled() {
             try { return enableHitSound != null && enableHitSound.get(); } catch (Exception e) { return true; }
