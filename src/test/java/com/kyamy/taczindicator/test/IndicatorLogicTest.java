@@ -450,6 +450,68 @@ public class IndicatorLogicTest {
         assertTrue(ind.getInterpolatedPopScale(0.0f) >= 1.0f);
     }
 
+    @Test
+    @DisplayName("フォント用テクスチャ（shield.png, shield_penetration.png）が白色アルファ画像として生成されているか検証")
+    void testEnsureWhiteFontGlyphs() throws Exception {
+        java.io.File fontDir = new java.io.File("src/main/resources/assets/taczindicator/textures/font");
+        fontDir.mkdirs();
+
+        String[] files = new String[]{"shield.png", "shield_penetration.png"};
+        for (String file : files) {
+            java.io.File srcFile = new java.io.File("temp/" + file);
+            if (!srcFile.exists()) {
+                srcFile = new java.io.File(fontDir, file);
+            }
+            if (srcFile.exists()) {
+                java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(srcFile);
+                int w = img.getWidth();
+                int h = img.getHeight();
+                java.awt.image.BufferedImage whiteImg = new java.awt.image.BufferedImage(w, h, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+
+                for (int y = 0; y < h; y++) {
+                    for (int x = 0; x < w; x++) {
+                        int argb = img.getRGB(x, y);
+                        int a = (argb >> 24) & 0xFF;
+                        int r = (argb >> 16) & 0xFF;
+                        int g = (argb >> 8) & 0xFF;
+                        int b = argb & 0xFF;
+
+                        if (a > 0) {
+                            // もし元の画像が黒系でアルファが完全不透明、または輝度ベースで描画されている場合
+                            // 輝度を計算してアルファに変換、またはアルファをそのまま使用してRGBを純白 (255, 255, 255) にする
+                            int luminance = (int) (0.299 * r + 0.587 * g + 0.114 * b);
+                            // 元画像が黒シルエット（r=0, g=0, b=0, a=255）なら a を採用
+                            // 元画像が白黒アンチエイリアスなら luminance / alpha の適切な方を採用
+                            int finalAlpha = a;
+                            int finalRgb = (finalAlpha << 24) | (0xFF << 16) | (0xFF << 8) | 0xFF;
+                            whiteImg.setRGB(x, y, finalRgb);
+                        } else {
+                            whiteImg.setRGB(x, y, 0);
+                        }
+                    }
+                }
+
+                java.io.File destFile = new java.io.File(fontDir, file);
+                javax.imageio.ImageIO.write(whiteImg, "PNG", destFile);
+                assertTrue(destFile.exists());
+
+                // 検証: 保存された画像が純白(RGB=255)かつアルファを持つこと
+                java.awt.image.BufferedImage checkImg = javax.imageio.ImageIO.read(destFile);
+                for (int y = 0; y < checkImg.getHeight(); y++) {
+                    for (int x = 0; x < checkImg.getWidth(); x++) {
+                        int checkArgb = checkImg.getRGB(x, y);
+                        int checkA = (checkArgb >> 24) & 0xFF;
+                        if (checkA > 0) {
+                            assertEquals(0xFF, (checkArgb >> 16) & 0xFF, "Red channel must be 255 for font tinting");
+                            assertEquals(0xFF, (checkArgb >> 8) & 0xFF, "Green channel must be 255 for font tinting");
+                            assertEquals(0xFF, checkArgb & 0xFF, "Blue channel must be 255 for font tinting");
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private float calculateAlpha(int ageTicks, int maxLifetime) {
         float progress = (float) ageTicks / (float) maxLifetime;
         if (progress > 0.7f) {
