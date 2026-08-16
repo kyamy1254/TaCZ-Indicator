@@ -121,8 +121,8 @@ public class CombatStatsScreen extends Screen {
 
         // Card 3: 弾薬 & 装甲貫通 (左下)
         long combatSec = stats.getTotalCombatDurationMs() / 1000L;
-        renderCard(guiGraphics, marginX, bottomRowY, cardWidth, cardHeight, "§d§l[ 🛡️ 装甲貫通 & 単発火力 ]", new String[]{
-                String.format(Locale.ROOT, "§f防具貫通(AP)弾: §f🗡 %d 発 §7| §f防具軽減: §b🛡 %d 発", stats.getTotalArmorPiercing(), stats.getTotalArmorDamage()),
+        renderCard(guiGraphics, marginX, bottomRowY, cardWidth, cardHeight, "§d§l[ \uE001 装甲貫通 & 単発火力 ]", new String[]{
+                String.format(Locale.ROOT, "§f防具貫通(AP)弾: §f\uE002 %d 発 §7| §f防具軽減: §b\uE001 %d 発", stats.getTotalArmorPiercing(), stats.getTotalArmorDamage()),
                 String.format(Locale.ROOT, "§f最大単発ダメージ: §d%.1f", stats.getMaxSingleDamage()),
                 String.format(Locale.ROOT, "§f実戦闘時間: §f%02d:%02d", combatSec / 60, combatSec % 60)
         });

@@ -404,11 +404,11 @@ public class IndicatorConfig {
                     .define("showCriticalIcon", true);
 
             showArmorPiercingIcon = builder
-                    .comment("防具貫通弾(AP)命中時に貫通アイコン(🗡)を表示するかどうか")
+                    .comment("防具貫通弾(AP)命中時に貫通アイコン(shield_penetration.png)を表示するかどうか")
                     .define("showArmorPiercingIcon", true);
 
             showArmorDamageIcon = builder
-                    .comment("防具装備モブに命中した際に防具軽減アイコン(🛡)を表示するかどうか")
+                    .comment("防具装備モブに命中した際に防具軽減アイコン(shield.png)を表示するかどうか")
                     .define("showArmorDamageIcon", true);
 
             normalDamageColor = builder

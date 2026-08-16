@@ -152,7 +152,7 @@ public class CombatStatsManager {
             }
             if (isHeadshot) logMsg.append(" §c[HS ☠]");
             else if (isCritical) logMsg.append(" §6[Crit ★]");
-            if (isArmorPiercing) logMsg.append(" §f[AP 🗡]");
+            if (isArmorPiercing) logMsg.append(" §f[AP \uE002]");
 
             this.combatLogs.add(0, new CombatLogEntry(now, logMsg.toString(), damage, true, isHeadshot, isCritical, isArmorPiercing));
             if (this.combatLogs.size() > MAX_LOGS) {
