@@ -115,7 +115,7 @@ Minecraft Forge 1.20.1 環境において、TaCZ (Timeless and Classics Zero) �
 
 | 項目名 | 型 | デフォルト値 | 説明 |
 | :--- | :--- | :--- | :--- |
-| `combatStatsMode` | enum | `COMBAT_ONLY` | 戦闘統計カードの表示モード (`OFF`, `COMBAT_ONLY`, `ALWAYS`) |
+| `combatStatsMode` | enum | `OFF` | 戦闘統計カードの表示モード (`OFF`, `COMBAT_ONLY`, `ALWAYS`) |
 | `combatStatsPosition` | enum | `TOP_RIGHT` | HUD配置位置 (`TOP_LEFT`, `TOP_RIGHT`, `BOTTOM_LEFT`, `BOTTOM_RIGHT`) |
 | `combatStatsScale` | double | `1.0` | 戦闘統計カードの拡大スケール (0.5〜2.5) |
 

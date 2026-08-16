@@ -500,10 +500,10 @@ public class IndicatorConfig {
 
             combatStatsMode = builder
                     .comment("戦闘統計（DPS・総ダメージ・命中数・HS率・キル数）のHUD表示モード:",
-                             "  OFF         : 非表示",
+                             "  OFF         : 非表示 (デフォルト)",
                              "  COMBAT_ONLY : 戦闘中のみ表示（非戦闘時に5秒でフェードアウト）",
                              "  ALWAYS      : 常に画面上に表示")
-                    .defineEnum("combatStatsMode", CombatStatsDisplayMode.COMBAT_ONLY);
+                    .defineEnum("combatStatsMode", CombatStatsDisplayMode.OFF);
 
             combatStatsPosition = builder
                     .comment("戦闘統計カードの画面配置位置 (TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT)")
@@ -650,7 +650,7 @@ public class IndicatorConfig {
             try { return killSoundVolume != null ? killSoundVolume.get() : 0.9D; } catch (Exception e) { return 0.9D; }
         }
         public CombatStatsDisplayMode getCombatStatsMode() {
-            try { return combatStatsMode != null ? combatStatsMode.get() : CombatStatsDisplayMode.COMBAT_ONLY; } catch (Exception e) { return CombatStatsDisplayMode.COMBAT_ONLY; }
+            try { return combatStatsMode != null ? combatStatsMode.get() : CombatStatsDisplayMode.OFF; } catch (Exception e) { return CombatStatsDisplayMode.OFF; }
         }
         public CombatStatsPosition getCombatStatsPosition() {
             try { return combatStatsPosition != null ? combatStatsPosition.get() : CombatStatsPosition.TOP_RIGHT; } catch (Exception e) { return CombatStatsPosition.TOP_RIGHT; }
