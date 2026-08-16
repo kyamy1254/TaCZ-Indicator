@@ -73,14 +73,21 @@ public class DamageEventHandler {
         String victimName = victim.getDisplayName().getString();
         int distanceMeters = (int) Math.round(attackingPlayer.position().distanceTo(victim.position()));
 
+        // TaCZヒット情報またはダメージソースからの判定
+        TaCZCompatHandler.TaCZHitRecord taczHit = TaCZCompatHandler.getRecentHit(victim.getId());
+        boolean isTaCZ = (taczHit != null) || isTaCZDamage(event.getSource(), directEntity);
+        boolean isHeadshot = (taczHit != null && isHeadshotFromRecord(taczHit));
+        boolean isCritical = isCriticalDamage(attackingPlayer, event.getSource(), directEntity, isTaCZ);
+        boolean isArmorPiercing = (taczHit != null && taczHit.isArmorPiercing()) || isArmorPiercingDamage(event.getSource(), directEntity);
+
         DamageIndicatorPacket packet = new DamageIndicatorPacket(
                 victim.getId(),
                 eyePos.x, eyePos.y, eyePos.z,
                 0.0f,
-                false,
-                false,
-                false,
-                false,
+                isHeadshot,
+                isCritical,
+                isTaCZ,
+                isArmorPiercing,
                 false,
                 true,
                 victimName,
@@ -88,7 +95,8 @@ public class DamageEventHandler {
         );
 
         ModMessages.sendToPlayer(packet, attackingPlayer);
-        TaCZIndicatorMod.LOGGER.debug("Sent kill packet: victim={}, player={}, dist={}m", victimName, attackingPlayer.getName().getString(), distanceMeters);
+        TaCZIndicatorMod.LOGGER.debug("Sent kill packet: victim={}, player={}, dist={}m, HS={}, Crit={}, AP={}, TaCZ={}",
+                victimName, attackingPlayer.getName().getString(), distanceMeters, isHeadshot, isCritical, isArmorPiercing, isTaCZ);
     }
 
     private static void handleDamage(LivingEntity victim, DamageSource source, float damage) {

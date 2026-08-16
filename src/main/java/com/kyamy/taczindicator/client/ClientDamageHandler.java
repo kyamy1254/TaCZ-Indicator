@@ -96,8 +96,16 @@ public class ClientDamageHandler {
             SoundHelper.playHitSound(isHeadshot, isArmorPiercing, hitArmor);
         }
 
-        if (isKill && IndicatorConfig.isShowKillAlert()) {
-            DamageIndicatorManager.getInstance().addKillAlert(victimName, distanceMeters);
+        if (isKill) {
+            if (damage <= 0.001f) {
+                // ダメージ0のキル専用パケットの場合にキル記録
+                com.kyamy.taczindicator.client.stats.CombatStatsManager.getInstance().recordKill(
+                        victimName, distanceMeters, isHeadshot, isCritical, isArmorPiercing
+                );
+            }
+            if (IndicatorConfig.isShowKillAlert()) {
+                DamageIndicatorManager.getInstance().addKillAlert(victimName, distanceMeters);
+            }
             // キル確定サウンド再生
             SoundHelper.playKillSound();
         }
@@ -246,14 +254,20 @@ public class ClientDamageHandler {
                                 hitArmor
                         );
 
+                        int distMeters = (int) Math.round(localPlayer.position().distanceTo(entity.position()));
+                        boolean isKill = entity.isDeadOrDying() || (currentHealth <= 0.05f);
+
                         // 詳細戦闘統計の記録
                         com.kyamy.taczindicator.client.stats.CombatStatsManager.getInstance().recordDamage(
-                                delta, false, false, false, false, hitArmor, entity.isDeadOrDying(), entity.getDisplayName().getString(), 0
+                                delta, false, false, false, false, hitArmor, isKill, entity.getDisplayName().getString(), distMeters
                         );
 
                         // 厳密なクライアントキル判定（deathTime == 1 かつ プレイヤー起因）
-                        if (entity.isDeadOrDying() && entity.deathTime == 1 && IndicatorConfig.isShowKillAlert()) {
-                            DamageIndicatorManager.getInstance().addKillAlert(entity.getDisplayName().getString());
+                        if (entity.isDeadOrDying() && entity.deathTime == 1) {
+                            if (IndicatorConfig.isShowKillAlert()) {
+                                DamageIndicatorManager.getInstance().addKillAlert(entity.getDisplayName().getString(), distMeters);
+                            }
+                            SoundHelper.playKillSound();
                         }
                     }
                 }

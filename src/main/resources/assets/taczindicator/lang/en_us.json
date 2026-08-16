@@ -66,10 +66,9 @@
   "taczindicator.theme.tactical": "Tactical (CoD)",
   "taczindicator.theme.valorant": "Valorant Style",
 
-  "taczindicator.animation.float_up": "Float Up",
-  "taczindicator.animation.scatter_pop": "Scatter Pop",
-  "taczindicator.animation.gravity_drop": "Gravity Drop",
-  "taczindicator.animation.static": "Static",
+  "taczindicator.animation.static_pop": "Static Pop (Recommended)",
+  "taczindicator.animation.static_fade": "Static Fade",
+  "taczindicator.animation.subtle_pop": "Subtle Pop",
 
   "taczindicator.stats.mode.off": "Off",
   "taczindicator.stats.mode.combat_only": "In Combat Only",

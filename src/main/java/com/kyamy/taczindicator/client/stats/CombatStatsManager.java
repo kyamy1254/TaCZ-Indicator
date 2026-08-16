@@ -166,6 +166,10 @@ public class CombatStatsManager {
     }
 
     public synchronized void recordKill(String victimName, int distanceMeters) {
+        recordKill(victimName, distanceMeters, false, false, false);
+    }
+
+    public synchronized void recordKill(String victimName, int distanceMeters, boolean isHeadshot, boolean isCritical, boolean isArmorPiercing) {
         this.totalKills++;
         long now = System.currentTimeMillis();
         this.lastDamageTimeMs = now;
@@ -181,14 +185,18 @@ public class CombatStatsManager {
         if (distanceMeters > 0) {
             logMsg.append(" §7[").append(distanceMeters).append("m]");
         }
-        this.combatLogs.add(0, new CombatLogEntry(now, logMsg.toString(), 0.0f, true, false, false, false));
+        if (isHeadshot) logMsg.append(" §c[HS ☠]");
+        else if (isCritical) logMsg.append(" §6[Crit ★]");
+        if (isArmorPiercing) logMsg.append(" §f[AP \uE002]");
+
+        this.combatLogs.add(0, new CombatLogEntry(now, logMsg.toString(), 0.0f, true, isHeadshot, isCritical, isArmorPiercing));
         if (this.combatLogs.size() > MAX_LOGS) {
             this.combatLogs.remove(this.combatLogs.size() - 1);
         }
     }
 
     public synchronized void recordKill() {
-        recordKill("", 0);
+        recordKill("", 0, false, false, false);
     }
 
     private void cleanOldEntries(long now) {

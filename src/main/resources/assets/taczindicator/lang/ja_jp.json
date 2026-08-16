@@ -66,10 +66,9 @@
   "taczindicator.theme.tactical": "Tactical (CoD)",
   "taczindicator.theme.valorant": "Valorant風",
 
-  "taczindicator.animation.float_up": "浮遊上昇",
-  "taczindicator.animation.scatter_pop": "拡散バウンス",
-  "taczindicator.animation.gravity_drop": "重力落下",
-  "taczindicator.animation.static": "静止拡大",
+  "taczindicator.animation.static_pop": "静止拡大 (推奨)",
+  "taczindicator.animation.static_fade": "静止フェード",
+  "taczindicator.animation.subtle_pop": "微小ポップ",
 
   "taczindicator.stats.mode.off": "非表示",
   "taczindicator.stats.mode.combat_only": "戦闘中のみ",

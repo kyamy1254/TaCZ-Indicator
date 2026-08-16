@@ -47,10 +47,9 @@ public class IndicatorConfig {
     }
 
     public enum AnimationStyle {
-        FLOAT_UP("taczindicator.animation.float_up"),
-        SCATTER_POP("taczindicator.animation.scatter_pop"),
-        GRAVITY_DROP("taczindicator.animation.gravity_drop"),
-        STATIC("taczindicator.animation.static");
+        STATIC_POP("taczindicator.animation.static_pop"),
+        STATIC_FADE("taczindicator.animation.static_fade"),
+        SUBTLE_POP("taczindicator.animation.subtle_pop");
 
         private final String translationKey;
 
@@ -289,12 +288,11 @@ public class IndicatorConfig {
                     .defineEnum("consecutiveMode", ConsecutiveMode.ACCUMULATE);
 
             animationStyle = builder
-                    .comment("ダメージ数値のポップアニメーションスタイル:",
-                             "  STATIC       : その場で拡大ポップ（移動なし・デフォルト）",
-                             "  FLOAT_UP     : 上方へふわっと浮遊上昇",
-                             "  SCATTER_POP  : 左右へランダムに小さく跳ねて散らばる（Apex/Borderlands風）",
-                             "  GRAVITY_DROP : 軽く跳ね上がってから重力で落ちる")
-                    .defineEnum("animationStyle", AnimationStyle.STATIC);
+                    .comment("ダメージ数値のアニメーションスタイル (位置がブレない高視認性スタイル):",
+                             "  STATIC_POP  : その場で拡大ポップ（移動なし・推奨デフォルト）",
+                             "  STATIC_FADE : 拡大も移動もせずスムーズにフェードアウト（ミニマル）",
+                             "  SUBTLE_POP  : わずかに浮き上がって静止する控えめなポップ")
+                    .defineEnum("animationStyle", AnimationStyle.STATIC_POP);
 
             comboTimeoutTicks = builder
                     .comment("連続ヒットと判定する制限時間（Tick単位: 20Ticks = 1秒）")
@@ -536,7 +534,7 @@ public class IndicatorConfig {
             try { return consecutiveMode != null ? consecutiveMode.get() : ConsecutiveMode.ACCUMULATE; } catch (Exception e) { return ConsecutiveMode.ACCUMULATE; }
         }
         public AnimationStyle getAnimationStyle() {
-            try { return animationStyle != null ? animationStyle.get() : AnimationStyle.STATIC; } catch (Exception e) { return AnimationStyle.STATIC; }
+            try { return animationStyle != null ? animationStyle.get() : AnimationStyle.STATIC_POP; } catch (Exception e) { return AnimationStyle.STATIC_POP; }
         }
         public int getComboTimeoutTicks() {
             try { return comboTimeoutTicks != null ? comboTimeoutTicks.get() : 30; } catch (Exception e) { return 30; }

@@ -429,8 +429,12 @@ public class IndicatorLogicTest {
     }
 
     @Test
-    @DisplayName("アニメーションスタイルごとの物理ベクトル更新検証")
+    @DisplayName("高視認性アニメーションスタイル（STATIC_POP, STATIC_FADE, SUBTLE_POP）検証")
     void testAnimationStylePhysics() {
+        for (com.kyamy.taczindicator.config.IndicatorConfig.AnimationStyle style : com.kyamy.taczindicator.config.IndicatorConfig.AnimationStyle.values()) {
+            assertNotNull(style.getTranslationKey());
+        }
+
         com.kyamy.taczindicator.client.model.IndicatorInstance ind = new com.kyamy.taczindicator.client.model.IndicatorInstance(
                 1, 0, 64, 0, 50.0f, false, false, true
         );
@@ -442,8 +446,8 @@ public class IndicatorLogicTest {
 
         // tick更新
         ind.tick();
-        // 移動または更新が行われていること
         assertTrue(ind.getAgeTicks() == 1);
+        assertTrue(ind.getInterpolatedPopScale(0.0f) >= 1.0f);
     }
 
     private float calculateAlpha(int ageTicks, int maxLifetime) {

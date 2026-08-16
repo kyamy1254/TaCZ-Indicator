@@ -96,32 +96,26 @@ public class IndicatorInstance {
     public static final String ICON_SHIELD_PENETRATION = "\uE002";
 
     private void initAnimationPhysics() {
+        this.motionX = 0.0;
+        this.motionZ = 0.0;
         switch (this.animationStyle) {
-            case SCATTER_POP -> {
-                // Apex / Borderlands 風: 水平ランダム拡散 (約0.03〜0.06m/tick) + 初速上向き
-                double angle = RANDOM.nextDouble() * Math.PI * 2.0;
-                double speed = 0.025 + RANDOM.nextDouble() * 0.035;
-                this.motionX = Math.cos(angle) * speed;
-                this.motionZ = Math.sin(angle) * speed;
-                this.motionY = 0.045 + RANDOM.nextDouble() * 0.030;
+            case SUBTLE_POP -> {
+                // 1〜2ピクセル程度だけわずかに上に浮き上がるマイクロアニメーション
+                this.motionY = 0.010;
+                this.popScale = 1.20f;
+                this.prevPopScale = 1.20f;
             }
-            case GRAVITY_DROP -> {
-                // 軽く上へ跳ね上がってから重力で落ちる
-                double angle = RANDOM.nextDouble() * Math.PI * 2.0;
-                double speed = 0.010 + RANDOM.nextDouble() * 0.015;
-                this.motionX = Math.cos(angle) * speed;
-                this.motionZ = Math.sin(angle) * speed;
-                this.motionY = 0.065;
-            }
-            case STATIC -> {
-                this.motionX = 0.0;
+            case STATIC_FADE -> {
+                // スケール変化も移動もなし（ピタッと静止してフェードアウト）
                 this.motionY = 0.0;
-                this.motionZ = 0.0;
+                this.popScale = 1.0f;
+                this.prevPopScale = 1.0f;
             }
-            case FLOAT_UP -> {
-                this.motionX = 0.0;
-                this.motionY = IndicatorConfig.getRiseSpeed();
-                this.motionZ = 0.0;
+            case STATIC_POP -> {
+                // その場でポンッと拡大（移動なし）
+                this.motionY = 0.0;
+                this.popScale = 1.35f;
+                this.prevPopScale = 1.35f;
             }
         }
     }
@@ -179,12 +173,16 @@ public class IndicatorInstance {
 
         // タイマーのリセットとポップアニメーションの再トリガー
         this.ageTicks = 0;
-        this.popScale = 1.45f;
-        this.prevPopScale = 1.45f;
-
-        // 拡散バウンス・重力落下の初速を軽く再付与
-        if (this.animationStyle == IndicatorConfig.AnimationStyle.SCATTER_POP || this.animationStyle == IndicatorConfig.AnimationStyle.GRAVITY_DROP) {
-            this.motionY = 0.035;
+        if (this.animationStyle == IndicatorConfig.AnimationStyle.STATIC_POP) {
+            this.popScale = 1.45f;
+            this.prevPopScale = 1.45f;
+        } else if (this.animationStyle == IndicatorConfig.AnimationStyle.SUBTLE_POP) {
+            this.popScale = 1.25f;
+            this.prevPopScale = 1.25f;
+            this.motionY = 0.008;
+        } else {
+            this.popScale = 1.0f;
+            this.prevPopScale = 1.0f;
         }
 
         updateFormattedTextAndColor();
@@ -219,27 +217,12 @@ public class IndicatorInstance {
         this.prevAnimOffsetZ = this.animOffsetZ;
 
         switch (this.animationStyle) {
-            case SCATTER_POP -> {
-                this.animOffsetX += this.motionX;
+            case SUBTLE_POP -> {
                 this.animOffsetY += this.motionY;
-                this.animOffsetZ += this.motionZ;
-                // 空気抵抗と微小減速
-                this.motionX *= 0.88;
-                this.motionZ *= 0.88;
-                this.motionY = Math.max(-0.015, this.motionY * 0.90 - 0.003);
+                this.motionY = Math.max(0.0, this.motionY * 0.70 - 0.001); // 素早く減速してピタッと静止
             }
-            case GRAVITY_DROP -> {
-                this.animOffsetX += this.motionX;
-                this.animOffsetY += this.motionY;
-                this.animOffsetZ += this.motionZ;
-                // 重力加速度
-                this.motionY -= 0.006;
-            }
-            case STATIC -> {
-                // 静止
-            }
-            case FLOAT_UP -> {
-                this.animOffsetY += IndicatorConfig.getRiseSpeed();
+            case STATIC_POP, STATIC_FADE -> {
+                // 位置の移動なし
             }
         }
 
@@ -247,7 +230,11 @@ public class IndicatorInstance {
         this.currentScrollY += (this.targetScrollY - this.currentScrollY) * 0.4;
 
         this.prevPopScale = this.popScale;
-        this.popScale += (1.0f - this.popScale) * 0.25f;
+        if (this.animationStyle != IndicatorConfig.AnimationStyle.STATIC_FADE) {
+            this.popScale += (1.0f - this.popScale) * 0.25f;
+        } else {
+            this.popScale = 1.0f;
+        }
 
         this.ageTicks++;
     }
@@ -295,14 +282,14 @@ public class IndicatorInstance {
      * 2D HUD用の補間アニメーションオフセットX (ピクセル単位)
      */
     public double getInterpolatedAnimOffsetX(float partialTicks) {
-        return (this.prevAnimOffsetX + (this.animOffsetX - this.prevAnimOffsetX) * partialTicks) * 140.0;
+        return (this.prevAnimOffsetX + (this.animOffsetX - this.prevAnimOffsetX) * partialTicks) * 20.0;
     }
 
     /**
      * 2D HUD用の補間アニメーションオフセットY (ピクセル単位)
      */
     public double getInterpolatedAnimOffsetY(float partialTicks) {
-        return -(this.prevAnimOffsetY + (this.animOffsetY - this.prevAnimOffsetY) * partialTicks) * 140.0;
+        return -(this.prevAnimOffsetY + (this.animOffsetY - this.prevAnimOffsetY) * partialTicks) * 20.0;
     }
 
     /**
