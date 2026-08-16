@@ -290,11 +290,11 @@ public class IndicatorConfig {
 
             animationStyle = builder
                     .comment("ダメージ数値のポップアニメーションスタイル:",
-                             "  FLOAT_UP     : 上方へふわっと浮遊上昇（標準）",
-                             "  SCATTER_POP  : 左右へランダムに小さく跳ねて散らばる（Apex/Borderlands風・連射時の視認性向上）",
-                             "  GRAVITY_DROP : 軽く跳ね上がってから重力で落ちる",
-                             "  STATIC       : その場で拡大ポップ（移動なし）")
-                    .defineEnum("animationStyle", AnimationStyle.FLOAT_UP);
+                             "  STATIC       : その場で拡大ポップ（移動なし・デフォルト）",
+                             "  FLOAT_UP     : 上方へふわっと浮遊上昇",
+                             "  SCATTER_POP  : 左右へランダムに小さく跳ねて散らばる（Apex/Borderlands風）",
+                             "  GRAVITY_DROP : 軽く跳ね上がってから重力で落ちる")
+                    .defineEnum("animationStyle", AnimationStyle.STATIC);
 
             comboTimeoutTicks = builder
                     .comment("連続ヒットと判定する制限時間（Tick単位: 20Ticks = 1秒）")
@@ -536,7 +536,7 @@ public class IndicatorConfig {
             try { return consecutiveMode != null ? consecutiveMode.get() : ConsecutiveMode.ACCUMULATE; } catch (Exception e) { return ConsecutiveMode.ACCUMULATE; }
         }
         public AnimationStyle getAnimationStyle() {
-            try { return animationStyle != null ? animationStyle.get() : AnimationStyle.FLOAT_UP; } catch (Exception e) { return AnimationStyle.FLOAT_UP; }
+            try { return animationStyle != null ? animationStyle.get() : AnimationStyle.STATIC; } catch (Exception e) { return AnimationStyle.STATIC; }
         }
         public int getComboTimeoutTicks() {
             try { return comboTimeoutTicks != null ? comboTimeoutTicks.get() : 30; } catch (Exception e) { return 30; }

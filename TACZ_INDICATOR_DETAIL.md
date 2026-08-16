@@ -99,7 +99,7 @@ Minecraft Forge 1.20.1 環境において、TaCZ (Timeless and Classics Zero) �
 | `onlyTaczDamage` | boolean | `false` | TaCZ銃器ダメージのみ表示 |
 | `renderMode` | enum | `HUD_CROSSHAIR` | 描画モード (`HUD_CROSSHAIR`, `HUD_PROJECTED`, `WORLD_3D`) |
 | `consecutiveMode` | enum | `ACCUMULATE` | 連続ダメージ処理 (`ACCUMULATE`, `SCROLL_UP`, `OFF`) |
-| `animationStyle` | enum | `FLOAT_UP` | アニメーション挙動 (`FLOAT_UP`, `SCATTER_POP`, `GRAVITY_DROP`, `STATIC`) |
+| `animationStyle` | enum | `STATIC` | アニメーション挙動 (`STATIC`, `FLOAT_UP`, `SCATTER_POP`, `GRAVITY_DROP`) |
 | `comboTimeoutTicks` | int | `30` | 連続ヒット判定時間 (20Ticks = 1秒) |
 | `showHitCount` | boolean | `true` | 加算モード時のヒット数表示 (`(x3)` など) |
 | `showKillAlert` | boolean | `true` | キル確定通知の表示 (`[100m]` 距離表示付き) |
