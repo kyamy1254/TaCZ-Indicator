@@ -2,12 +2,16 @@ package com.kyamy.taczindicator.client.stats;
 
 import com.kyamy.taczindicator.config.IndicatorConfig;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 /**
- * クライアント側戦闘統計・DPSマネージャー
- * 直近3秒間のスライディングウィンドウによる正確な瞬間DPS計算、総与ダメ、命中数、HS率、キル数を集計
+ * クライアント側詳細戦闘統計・DPSマネージャー
+ * 瞬間DPS（3秒スライディングウィンドウ）、ピークDPS、平均DPS、最大単発ダメージ、命中分析、キル距離、および戦闘ログ履歴を総合管理
  */
 public class CombatStatsManager {
     private static final CombatStatsManager INSTANCE = new CombatStatsManager();
@@ -16,7 +20,7 @@ public class CombatStatsManager {
         return INSTANCE;
     }
 
-    private static class DamageEntry {
+    public static class DamageEntry {
         final long timestampMs;
         final float damage;
 
@@ -26,41 +30,142 @@ public class CombatStatsManager {
         }
     }
 
+    public static class CombatLogEntry {
+        private final long timestampMs;
+        private final String timeFormatted;
+        private final String message;
+        private final float damage;
+        private final boolean isKill;
+        private final boolean isHeadshot;
+        private final boolean isCritical;
+        private final boolean isArmorPiercing;
+
+        public CombatLogEntry(long timestampMs, String message, float damage, boolean isKill, boolean isHeadshot, boolean isCritical, boolean isArmorPiercing) {
+            this.timestampMs = timestampMs;
+            this.timeFormatted = new SimpleDateFormat("HH:mm:ss", Locale.ROOT).format(new Date(timestampMs));
+            this.message = message;
+            this.damage = damage;
+            this.isKill = isKill;
+            this.isHeadshot = isHeadshot;
+            this.isCritical = isCritical;
+            this.isArmorPiercing = isArmorPiercing;
+        }
+
+        public long getTimestampMs() { return timestampMs; }
+        public String getTimeFormatted() { return timeFormatted; }
+        public String getMessage() { return message; }
+        public float getDamage() { return damage; }
+        public boolean isKill() { return isKill; }
+        public boolean isHeadshot() { return isHeadshot; }
+        public boolean isCritical() { return isCritical; }
+        public boolean isArmorPiercing() { return isArmorPiercing; }
+    }
+
     private double totalDamage = 0.0;
     private int totalHits = 0;
     private int totalHeadshots = 0;
+    private int totalCriticals = 0;
+    private int totalArmorPiercing = 0;
+    private int totalArmorDamage = 0;
     private int totalKills = 0;
 
-    private final List<DamageEntry> damageWindow = new ArrayList<>();
+    private float maxSingleDamage = 0.0f;
+    private float peakDps = 0.0f;
+    private int maxKillDistance = 0;
+    private int totalKillDistance = 0;
+
+    private long firstCombatTimeMs = 0L;
+    private long totalCombatActiveMs = 0L;
     private long lastDamageTimeMs = 0L;
+
+    private final List<DamageEntry> damageWindow = new ArrayList<>();
+    private final List<CombatLogEntry> combatLogs = new ArrayList<>();
 
     private static final long WINDOW_MS = 3000L; // 直近3秒間
     private static final long COMBAT_TIMEOUT_MS = 5000L; // 非戦闘移行5秒
+    private static final int MAX_LOGS = 50;
 
     private CombatStatsManager() {}
 
     /**
-     * ダメージヒットを記録
+     * 詳細ダメージヒットの記録
      */
-    public synchronized void recordDamage(float damage, boolean isHeadshot, boolean isKill) {
+    public synchronized void recordDamage(float damage, boolean isHeadshot, boolean isCritical, boolean isTaCZ,
+                                         boolean isArmorPiercing, boolean hitArmor, boolean isKill,
+                                         String victimName, int distanceMeters) {
         long now = System.currentTimeMillis();
+
+        if (this.firstCombatTimeMs == 0L) {
+            this.firstCombatTimeMs = now;
+        }
+
+        // 戦闘継続時間の加算
+        if (this.lastDamageTimeMs > 0L) {
+            long delta = now - this.lastDamageTimeMs;
+            if (delta < COMBAT_TIMEOUT_MS) {
+                this.totalCombatActiveMs += delta;
+            }
+        }
+
         this.totalDamage += damage;
         this.totalHits++;
-        if (isHeadshot) {
-            this.totalHeadshots++;
+
+        if (isHeadshot) this.totalHeadshots++;
+        if (isCritical) this.totalCriticals++;
+        if (isArmorPiercing) this.totalArmorPiercing++;
+        if (hitArmor) this.totalArmorDamage++;
+
+        if (damage > this.maxSingleDamage) {
+            this.maxSingleDamage = damage;
         }
+
         if (isKill) {
             this.totalKills++;
+            if (distanceMeters > this.maxKillDistance) {
+                this.maxKillDistance = distanceMeters;
+            }
+            if (distanceMeters > 0) {
+                this.totalKillDistance += distanceMeters;
+            }
         }
-        this.lastDamageTimeMs = now;
 
+        this.lastDamageTimeMs = now;
         cleanOldEntries(now);
         this.damageWindow.add(new DamageEntry(now, damage));
+
+        // 現在DPSとピークDPSの更新
+        float currentDps = getDPS();
+        if (currentDps > this.peakDps) {
+            this.peakDps = currentDps;
+        }
+
+        // ログエントリの作成
+        String targetStr = (victimName != null && !victimName.isEmpty()) ? victimName : "Target";
+        StringBuilder logMsg = new StringBuilder();
+        if (isKill) {
+            logMsg.append("§c☠ Killed ").append(targetStr);
+            if (distanceMeters > 0) {
+                logMsg.append(" §7[").append(distanceMeters).append("m]");
+            }
+            logMsg.append(" §f(").append(String.format(Locale.ROOT, "%.1f dmg", damage)).append(")");
+        } else {
+            logMsg.append("§fHit ").append(targetStr).append(": §e").append(String.format(Locale.ROOT, "%.1f", damage));
+            if (isHeadshot) logMsg.append(" §c[HS ☠]");
+            else if (isCritical) logMsg.append(" §6[Crit ★]");
+            if (isArmorPiercing) logMsg.append(" §f[AP 🗡]");
+            else if (hitArmor) logMsg.append(" §b[Shield 🛡]");
+        }
+
+        this.combatLogs.add(0, new CombatLogEntry(now, logMsg.toString(), damage, isKill, isHeadshot, isCritical, isArmorPiercing));
+        if (this.combatLogs.size() > MAX_LOGS) {
+            this.combatLogs.remove(this.combatLogs.size() - 1);
+        }
     }
 
-    /**
-     * キル確定を記録
-     */
+    public synchronized void recordDamage(float damage, boolean isHeadshot, boolean isKill) {
+        recordDamage(damage, isHeadshot, false, false, false, false, isKill, "", 0);
+    }
+
     public synchronized void recordKill() {
         this.totalKills++;
         this.lastDamageTimeMs = System.currentTimeMillis();
@@ -92,27 +197,43 @@ public class CombatStatsManager {
         return (float) (sum / Math.min(3.0, durationSec));
     }
 
-    public synchronized double getTotalDamage() {
-        return totalDamage;
+    public synchronized float getAverageDPS() {
+        double combatSec = Math.max(1.0, (double) this.totalCombatActiveMs / 1000.0);
+        return (float) (this.totalDamage / combatSec);
     }
 
-    public synchronized int getTotalHits() {
-        return totalHits;
-    }
+    public synchronized double getTotalDamage() { return totalDamage; }
+    public synchronized int getTotalHits() { return totalHits; }
+    public synchronized int getTotalHeadshots() { return totalHeadshots; }
+    public synchronized int getTotalCriticals() { return totalCriticals; }
+    public synchronized int getTotalArmorPiercing() { return totalArmorPiercing; }
+    public synchronized int getTotalArmorDamage() { return totalArmorDamage; }
+    public synchronized int getTotalKills() { return totalKills; }
+    public synchronized float getMaxSingleDamage() { return maxSingleDamage; }
+    public synchronized float getPeakDps() { return peakDps; }
+    public synchronized int getMaxKillDistance() { return maxKillDistance; }
 
-    public synchronized int getTotalHeadshots() {
-        return totalHeadshots;
-    }
-
-    public synchronized int getTotalKills() {
-        return totalKills;
+    public synchronized float getAverageKillDistance() {
+        if (this.totalKills <= 0) return 0.0f;
+        return (float) this.totalKillDistance / (float) this.totalKills;
     }
 
     public synchronized float getHeadshotRate() {
-        if (this.totalHits <= 0) {
-            return 0.0f;
-        }
+        if (this.totalHits <= 0) return 0.0f;
         return ((float) this.totalHeadshots / (float) this.totalHits) * 100.0f;
+    }
+
+    public synchronized float getCriticalRate() {
+        if (this.totalHits <= 0) return 0.0f;
+        return ((float) this.totalCriticals / (float) this.totalHits) * 100.0f;
+    }
+
+    public synchronized long getTotalCombatDurationMs() {
+        return this.totalCombatActiveMs;
+    }
+
+    public synchronized List<CombatLogEntry> getCombatLogs() {
+        return Collections.unmodifiableList(new ArrayList<>(this.combatLogs));
     }
 
     public synchronized boolean isInCombat() {
@@ -131,7 +252,6 @@ public class CombatStatsManager {
             return 1.0f;
         }
 
-        // COMBAT_ONLY モード
         long elapsed = System.currentTimeMillis() - this.lastDamageTimeMs;
         if (elapsed < 3500L) {
             return 1.0f;
@@ -143,14 +263,47 @@ public class CombatStatsManager {
     }
 
     /**
+     * クリップボードコピー用の整形テキストレポートを生成
+     */
+    public synchronized String generateStatsReportText() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("========================================\n");
+        sb.append("      TaCZ Indicator - 戦闘統計レポート   \n");
+        sb.append("========================================\n");
+        sb.append(String.format(Locale.ROOT, "総与ダメージ: %,.1f\n", totalDamage));
+        sb.append(String.format(Locale.ROOT, "瞬間DPS (直近3秒): %.1f / ピークDPS: %.1f / 平均DPS: %.1f\n", getDPS(), peakDps, getAverageDPS()));
+        sb.append(String.format(Locale.ROOT, "最大単発ダメージ: %.1f\n", maxSingleDamage));
+        sb.append(String.format(Locale.ROOT, "総命中数: %d 発\n", totalHits));
+        sb.append(String.format(Locale.ROOT, "  - ヘッドショット: %d 発 (%.1f%%)\n", totalHeadshots, getHeadshotRate()));
+        sb.append(String.format(Locale.ROOT, "  - クリティカル: %d 発 (%.1f%%)\n", totalCriticals, getCriticalRate()));
+        sb.append(String.format(Locale.ROOT, "  - 防具貫通(AP): %d 発 / 防具軽減: %d 発\n", totalArmorPiercing, totalArmorDamage));
+        sb.append(String.format(Locale.ROOT, "総キル数: %d 体\n", totalKills));
+        sb.append(String.format(Locale.ROOT, "最長キル距離: %d m / 平均キル距離: %.1f m\n", maxKillDistance, getAverageKillDistance()));
+        long sec = totalCombatActiveMs / 1000L;
+        sb.append(String.format(Locale.ROOT, "実戦闘時間: %02d:%02d\n", sec / 60, sec % 60));
+        sb.append("========================================\n");
+        return sb.toString();
+    }
+
+    /**
      * 統計情報をリセット (サーバー同期またはクライアント手動)
      */
     public synchronized void resetStats() {
         this.totalDamage = 0.0;
         this.totalHits = 0;
         this.totalHeadshots = 0;
+        this.totalCriticals = 0;
+        this.totalArmorPiercing = 0;
+        this.totalArmorDamage = 0;
         this.totalKills = 0;
-        this.damageWindow.clear();
+        this.maxSingleDamage = 0.0f;
+        this.peakDps = 0.0f;
+        this.maxKillDistance = 0;
+        this.totalKillDistance = 0;
+        this.firstCombatTimeMs = 0L;
+        this.totalCombatActiveMs = 0L;
         this.lastDamageTimeMs = 0L;
+        this.damageWindow.clear();
+        this.combatLogs.clear();
     }
 }

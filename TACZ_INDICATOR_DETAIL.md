@@ -43,9 +43,14 @@ Minecraft Forge 1.20.1 環境において、TaCZ (Timeless and Classics Zero) �
   - 戦闘統計HUD (`combatStatsMode`: COMBAT_ONLY / ALWAYS / OFF, `combatStatsPosition`: TOP_RIGHT 等)
   - スクロール上限数 (`maxScrolledIndicators`)、コンボ持続時間、HUDスケール、各種アイコントグル、被ダメージ画面効果、サウンド設定を管理。
 - **`CombatStatsManager`**:
-  - 直近3秒間のスライディングウィンドウによる瞬間DPS計算、総与ダメージ、命中数、HS率(%)、キル数の集計およびセッション管理。
+  - 直近3秒間のスライディングウィンドウによる瞬間DPS計算、ピークDPS、平均DPS、最大単発ダメージ、総与ダメージ、命中数、HS率(%)、クリティカル率(%)、AP/防具ヒット数、最長キル距離、およびリアルタイム戦闘ログ履歴（最新50件）の集計・管理。
 - **`CombatStatsOverlay`**:
-  - スタイリッシュな半透明ダークカードによるリアルタイム戦闘統計HUDの描画（フェードイン/アウト対応）。
+  - HUD上にコンパクトに常駐するリアルタイムDPSメーターカード（フェードイン/アウト対応）。
+- **`CombatStatsScreen`**:
+  - 専用の戦闘統計詳細GUI画面（キーバインド `J` または設定画面のボタンからオープン）。4つの詳細統計カード（ダメージ&DPS、命中分析、装甲貫通、キル記録）とスクロール可能な戦闘ログ一覧、クリップボードへの整形レポートコピー機能を搭載。
+- **`ModKeyBindings`**:
+  - `key.taczindicator.open_config` (デフォルト: `K` キー): 設定画面を開く
+  - `key.taczindicator.open_stats` (デフォルト: `J` キー): 詳細戦闘統計画面を開く
 - **`SoundHelper`**:
   - 通常ヒット音、ヘッドショット音（高音キーン音）、防具貫通音、キル確定音の再生ヘルパー（デフォルトOFF）。
 - **`KillAlertInstance`**:
@@ -60,7 +65,7 @@ Minecraft Forge 1.20.1 環境において、TaCZ (Timeless and Classics Zero) �
 - **`DamageVignetteRenderer`**:
   - プレイヤーがダメージを受けた際に、画面四隅からの美しいグラデーションヴィネット（および画面フラッシュ）を描画。
 - **`IndicatorConfigScreen`**:
-  - ゲーム内設定GUI画面。タブ切り替えバー（全般/HUD/演出/サウンド）、カラーテーマ即時プレビュー、アニメーション切り替え、DPSメーター調整、ドラッグ位置調整を完備。
+  - ゲーム内設定GUI画面。タブ切り替えバー（全般/HUD/演出/サウンド）、カラーテーマ即時プレビュー、アニメーション切り替え、DPSメーター調整、詳細統計画面へのリンク、ドラッグ位置調整を完備。
 
 ### 2.4 リソース・カスタムフォント (`assets`)
 

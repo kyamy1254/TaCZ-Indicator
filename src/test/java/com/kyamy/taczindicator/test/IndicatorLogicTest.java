@@ -387,6 +387,47 @@ public class IndicatorLogicTest {
     }
 
     @Test
+    @DisplayName("詳細戦闘統計（ピークDPS、最大単発ダメージ、キル距離、ログ）およびレポート生成検証")
+    void testDetailedCombatStatsAndReport() {
+        com.kyamy.taczindicator.client.stats.CombatStatsManager manager = com.kyamy.taczindicator.client.stats.CombatStatsManager.getInstance();
+        manager.resetStats();
+
+        // 1. AP弾クリティカルヒット
+        manager.recordDamage(75.5f, false, true, true, true, false, false, "Zombie", 0);
+        assertEquals(75.5, manager.getTotalDamage(), 1e-4);
+        assertEquals(1, manager.getTotalHits());
+        assertEquals(1, manager.getTotalCriticals());
+        assertEquals(1, manager.getTotalArmorPiercing());
+        assertEquals(75.5f, manager.getMaxSingleDamage(), 1e-4);
+
+        // 2. スナイパーヘッドショットキル (120m)
+        manager.recordDamage(180.0f, true, false, true, false, false, true, "Skeleton", 120);
+        assertEquals(255.5, manager.getTotalDamage(), 1e-4);
+        assertEquals(2, manager.getTotalHits());
+        assertEquals(1, manager.getTotalHeadshots());
+        assertEquals(1, manager.getTotalKills());
+        assertEquals(180.0f, manager.getMaxSingleDamage(), 1e-4);
+        assertEquals(120, manager.getMaxKillDistance());
+        assertEquals(120.0f, manager.getAverageKillDistance(), 1e-4);
+        assertTrue(manager.getPeakDps() > 0.0f);
+
+        // 3. ログエントリの確認
+        assertEquals(2, manager.getCombatLogs().size());
+        assertTrue(manager.getCombatLogs().get(0).getMessage().contains("Skeleton"));
+
+        // 4. 整形レポート生成
+        String report = manager.generateStatsReportText();
+        assertNotNull(report);
+        assertTrue(report.contains("TaCZ Indicator - 戦闘統計レポート"));
+        assertTrue(report.contains("総与ダメージ: 255.5"));
+        assertTrue(report.contains("最大単発ダメージ: 180.0"));
+        assertTrue(report.contains("最長キル距離: 120 m"));
+
+        manager.resetStats();
+        assertEquals(0, manager.getCombatLogs().size());
+    }
+
+    @Test
     @DisplayName("アニメーションスタイルごとの物理ベクトル更新検証")
     void testAnimationStylePhysics() {
         com.kyamy.taczindicator.client.model.IndicatorInstance ind = new com.kyamy.taczindicator.client.model.IndicatorInstance(

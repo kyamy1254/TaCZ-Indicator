@@ -1,6 +1,7 @@
 {
   "key.categories.taczindicator": "TaCZ Indicator",
   "key.taczindicator.open_config": "設定画面を開く",
+  "key.taczindicator.open_stats": "詳細戦闘統計画面を開く",
 
   "taczindicator.gui.title": "TaCZ Indicator 設定",
   "taczindicator.gui.tab.general": "全般・表示",
@@ -44,10 +45,19 @@
   "taczindicator.gui.drag_instruction": "中央の数字をドラッグして位置を調整できます",
   "taczindicator.gui.save_and_close": "保存して適用",
   "taczindicator.gui.reset_defaults": "位置リセット",
+  "taczindicator.gui.open_stats_screen_btn": "📊 詳細統計画面を開く",
 
   "taczindicator.gui.combat_stats_mode": "DPSメーター: %s",
   "taczindicator.gui.combat_stats_position": "DPS位置: %s",
   "taczindicator.gui.reset_stats_btn": "統計をリセット",
+
+  "taczindicator.stats.gui.title": "戦闘詳細統計 (Combat Stats)",
+  "taczindicator.stats.gui.subtitle": "セッション詳細データ・DPS分析・キル履歴",
+  "taczindicator.stats.gui.copy_btn": "📋 統計をコピー",
+  "taczindicator.stats.gui.copied_feedback": "クリップボードにコピーしました！",
+  "taczindicator.stats.gui.reset_feedback": "戦闘統計をリセットしました！",
+  "taczindicator.stats.gui.config_btn": "⚙ 設定画面",
+  "taczindicator.stats.gui.no_logs": "戦闘データはまだありません",
 
   "taczindicator.theme.default": "デフォルト",
   "taczindicator.theme.apex": "Apex風",

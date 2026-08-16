@@ -25,17 +25,29 @@ public class ModKeyBindings {
             "key.categories.taczindicator"
     );
 
+    public static final KeyMapping OPEN_STATS_KEY = new KeyMapping(
+            "key.taczindicator.open_stats",
+            InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_J,
+            "key.categories.taczindicator"
+    );
+
     @SubscribeEvent
     public static void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
         event.register(OPEN_CONFIG_KEY);
+        event.register(OPEN_STATS_KEY);
     }
 
     @SubscribeEvent
     public static void onClientTick(TickEvent.ClientTickEvent event) {
         if (event.phase == TickEvent.Phase.END) {
             Minecraft mc = Minecraft.getInstance();
-            if (mc.player != null && mc.screen == null && OPEN_CONFIG_KEY.consumeClick()) {
-                mc.setScreen(new IndicatorConfigScreen(null));
+            if (mc.player != null && mc.screen == null) {
+                if (OPEN_CONFIG_KEY.consumeClick()) {
+                    mc.setScreen(new IndicatorConfigScreen(null));
+                } else if (OPEN_STATS_KEY.consumeClick()) {
+                    mc.setScreen(new com.kyamy.taczindicator.client.gui.CombatStatsScreen(null));
+                }
             }
         }
     }

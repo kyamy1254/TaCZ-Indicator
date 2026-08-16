@@ -249,7 +249,17 @@ public class IndicatorConfigScreen extends Screen {
                         }
                 ).bounds(leftCol, startY + gap * 3, btnWidth, btnHeight).build());
 
-                // 5. DPSメーター表示モード
+                // 5. 詳細統計画面を開く
+                this.addRenderableWidget(Button.builder(
+                        Component.translatable("taczindicator.gui.open_stats_screen_btn"),
+                        btn -> {
+                            if (this.minecraft != null) {
+                                this.minecraft.setScreen(new CombatStatsScreen(this));
+                            }
+                        }
+                ).bounds(leftCol, startY + gap * 4, btnWidth, btnHeight).build());
+
+                // 6. DPSメーター表示モード
                 this.addRenderableWidget(Button.builder(getCombatStatsModeText(), btn -> {
                     IndicatorConfig.CombatStatsDisplayMode[] modes = IndicatorConfig.CombatStatsDisplayMode.values();
                     int nextIdx = (this.tempCombatStatsMode.ordinal() + 1) % modes.length;
@@ -257,7 +267,7 @@ public class IndicatorConfigScreen extends Screen {
                     btn.setMessage(getCombatStatsModeText());
                 }).bounds(rightCol, startY, btnWidth, btnHeight).build());
 
-                // 6. DPSメーター配置
+                // 7. DPSメーター配置
                 this.addRenderableWidget(Button.builder(getCombatStatsPositionText(), btn -> {
                     IndicatorConfig.CombatStatsPosition[] positions = IndicatorConfig.CombatStatsPosition.values();
                     int nextIdx = (this.tempCombatStatsPosition.ordinal() + 1) % positions.length;
@@ -265,7 +275,7 @@ public class IndicatorConfigScreen extends Screen {
                     btn.setMessage(getCombatStatsPositionText());
                 }).bounds(rightCol, startY + gap, btnWidth, btnHeight).build());
 
-                // 7. DPSスケール [-] [+]
+                // 8. DPSスケール [-] [+]
                 this.addRenderableWidget(Button.builder(Component.literal("DPS Scale -"), btn -> {
                     this.tempCombatStatsScale = Math.max(0.5, Math.round((this.tempCombatStatsScale - 0.1) * 10.0) / 10.0);
                 }).bounds(rightCol, startY + gap * 2, 72, btnHeight).build());
@@ -274,7 +284,7 @@ public class IndicatorConfigScreen extends Screen {
                     this.tempCombatStatsScale = Math.min(2.5, Math.round((this.tempCombatStatsScale + 0.1) * 10.0) / 10.0);
                 }).bounds(rightCol + 78, startY + gap * 2, 72, btnHeight).build());
 
-                // 8. 統計リセットボタン
+                // 9. 統計リセットボタン
                 this.addRenderableWidget(Button.builder(
                         Component.translatable("taczindicator.gui.reset_stats_btn"),
                         btn -> CombatStatsManager.getInstance().resetStats()

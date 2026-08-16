@@ -1,6 +1,7 @@
 {
   "key.categories.taczindicator": "TaCZ Indicator",
   "key.taczindicator.open_config": "Open Indicator Settings",
+  "key.taczindicator.open_stats": "Open Combat Statistics Screen",
 
   "taczindicator.gui.title": "TaCZ Indicator Settings",
   "taczindicator.gui.tab.general": "General",
@@ -44,10 +45,19 @@
   "taczindicator.gui.drag_instruction": "Click and drag preview text to reposition",
   "taczindicator.gui.save_and_close": "Save & Apply",
   "taczindicator.gui.reset_defaults": "Reset Position",
+  "taczindicator.gui.open_stats_screen_btn": "📊 Open Detailed Stats",
 
   "taczindicator.gui.combat_stats_mode": "DPS Meter: %s",
   "taczindicator.gui.combat_stats_position": "DPS Pos: %s",
   "taczindicator.gui.reset_stats_btn": "Reset Stats",
+
+  "taczindicator.stats.gui.title": "Detailed Combat Statistics",
+  "taczindicator.stats.gui.subtitle": "Session combat metrics, DPS analysis & kill history",
+  "taczindicator.stats.gui.copy_btn": "📋 Copy Stats",
+  "taczindicator.stats.gui.copied_feedback": "Copied to clipboard!",
+  "taczindicator.stats.gui.reset_feedback": "Combat stats reset!",
+  "taczindicator.stats.gui.config_btn": "⚙ Settings",
+  "taczindicator.stats.gui.no_logs": "No combat data recorded yet",
 
   "taczindicator.theme.default": "Default",
   "taczindicator.theme.apex": "Apex Style",
