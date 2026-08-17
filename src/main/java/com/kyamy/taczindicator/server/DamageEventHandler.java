@@ -14,6 +14,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.TraceableEntity;
 import net.minecraft.world.entity.boss.enderdragon.EnderDragon;
 import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.event.entity.living.LivingDamageEvent;
@@ -156,55 +157,358 @@ public class DamageEventHandler {
                 victim.getId(), damage, weaponName, isHeadshot, isCritical, isArmorPiercing, isTaCZ, distanceMeters, attackingPlayer.getName().getString());
     }
 
-    public static String resolveWeaponName(ServerPlayer attackingPlayer, TaCZCompatHandler.TaCZHitRecord taczHit, DamageSource source, Entity directEntity) {
+    public static String resolveWeaponName(net.minecraft.world.entity.player.Player attackingPlayer, TaCZCompatHandler.TaCZHitRecord taczHit, DamageSource source, Entity directEntity) {
+        // 1. TaCZヒットキャッシュからの解決
         if (taczHit != null && taczHit.gunId() != null && !taczHit.gunId().isBlank()) {
             String formatted = formatGunName(taczHit.gunId());
-            if (!formatted.isEmpty()) {
+            if (!formatted.isEmpty() && !isGenericGunName(formatted)) {
                 return formatted;
             }
         }
-        if (attackingPlayer != null) {
-            net.minecraft.world.item.ItemStack mainHand = attackingPlayer.getMainHandItem();
-            if (mainHand != null && !mainHand.isEmpty()) {
-                String name = mainHand.getHoverName().getString();
-                if (name != null && !name.isBlank()) {
-                    return name;
+
+        // 2. 直撃弾丸エンティティ (EntityKineticBullet 等) からの深層抽出
+        if (directEntity != null && directEntity != attackingPlayer) {
+            String directGunId = TaCZCompatHandler.extractGunIdPropertyDeep(directEntity);
+            if (!directGunId.isEmpty()) {
+                String formatted = formatGunName(directGunId);
+                if (!formatted.isEmpty() && !isGenericGunName(formatted)) {
+                    return formatted;
+                }
+            }
+            if (directEntity.getPersistentData() != null) {
+                net.minecraft.nbt.CompoundTag tag = directEntity.getPersistentData();
+                for (String key : tag.getAllKeys()) {
+                    if (key.equalsIgnoreCase("GunId") || key.equalsIgnoreCase("gun_id") || key.equalsIgnoreCase("gun")) {
+                        String val = tag.getString(key);
+                        if (!val.isBlank()) {
+                            String formatted = formatGunName(val);
+                            if (!formatted.isEmpty() && !isGenericGunName(formatted)) {
+                                return formatted;
+                            }
+                        }
+                    }
                 }
             }
         }
+
+        // 3. ダメージソースからの抽出
+        if (source != null) {
+            String srcGunId = TaCZCompatHandler.extractGunIdPropertyDeep(source);
+            if (!srcGunId.isEmpty()) {
+                String formatted = formatGunName(srcGunId);
+                if (!formatted.isEmpty() && !isGenericGunName(formatted)) {
+                    return formatted;
+                }
+            }
+        }
+
+        // 4. 攻撃プレイヤーの手持ちアイテム (メインハンド / オフハンド) の詳細走査
+        if (attackingPlayer != null) {
+            ItemStack mainHand = attackingPlayer.getMainHandItem();
+            if (mainHand != null && !mainHand.isEmpty()) {
+                String resolved = resolveWeaponNameFromItemStack(mainHand);
+                if (!resolved.isBlank() && !isGenericGunName(resolved)) {
+                    return resolved;
+                }
+            }
+
+            ItemStack offHand = attackingPlayer.getOffhandItem();
+            if (offHand != null && !offHand.isEmpty()) {
+                String resolvedOff = resolveWeaponNameFromItemStack(offHand);
+                if (!resolvedOff.isBlank() && !isGenericGunName(resolvedOff)) {
+                    return resolvedOff;
+                }
+            }
+
+            // フォールバック: 表示名
+            if (mainHand != null && !mainHand.isEmpty()) {
+                String hoverName = mainHand.getHoverName().getString();
+                if (hoverName != null && !hoverName.isBlank()) {
+                    if (isGenericGunName(hoverName)) {
+                        return "TaCZ Gun";
+                    }
+                    return hoverName;
+                }
+            }
+        }
+
+        // 5. 発射物・召喚エンティティの表示名
         if (directEntity != null && directEntity != attackingPlayer) {
             return directEntity.getDisplayName().getString();
         }
+
         return "Melee";
+    }
+
+    /**
+     * ItemStack から武器名・銃器名を高精度に解決
+     */
+    public static String resolveWeaponNameFromItemStack(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) {
+            return "";
+        }
+
+        // 1. TaCZ IGun API による動的抽出 (リフレクション)
+        try {
+            Class<?> iGunClass = Class.forName("com.tacz.guns.api.item.IGun");
+            Method getIGunOrNull = null;
+            for (Method m : iGunClass.getMethods()) {
+                if (m.getName().equals("getIGunOrNull") && m.getParameterCount() == 1) {
+                    getIGunOrNull = m;
+                    break;
+                }
+            }
+            if (getIGunOrNull != null) {
+                Object iGun = getIGunOrNull.invoke(null, stack);
+                if (iGun != null) {
+                    for (Method m : iGun.getClass().getMethods()) {
+                        if (m.getName().equals("getGunId") && m.getParameterCount() == 1) {
+                            Object res = m.invoke(iGun, stack);
+                            if (res != null) {
+                                String formatted = formatGunName(res.toString());
+                                if (!formatted.isEmpty() && !isGenericGunName(formatted)) {
+                                    return formatted;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Throwable ignored) {}
+
+        // 2. ItemStack.getItem() から直接 getGunId(stack) を呼び出し
+        try {
+            Method m = stack.getItem().getClass().getMethod("getGunId", ItemStack.class);
+            Object res = m.invoke(stack.getItem(), stack);
+            if (res != null) {
+                String formatted = formatGunName(res.toString());
+                if (!formatted.isEmpty() && !isGenericGunName(formatted)) {
+                    return formatted;
+                }
+            }
+        } catch (Throwable ignored) {}
+
+        // 3. ItemStack の NBT タグ深層探索
+        if (stack.hasTag()) {
+            net.minecraft.nbt.CompoundTag tag = stack.getTag();
+            if (tag != null) {
+                String[] candidateKeys = {"GunId", "gun_id", "Gun", "gun", "WeaponId", "weapon_id", "GunIdentifier", "GunIndex", "GunData"};
+                for (String key : candidateKeys) {
+                    if (tag.contains(key, net.minecraft.nbt.Tag.TAG_STRING)) {
+                        String val = tag.getString(key);
+                        if (!val.isBlank()) {
+                            String formatted = formatGunName(val);
+                            if (!formatted.isEmpty() && !isGenericGunName(formatted)) {
+                                return formatted;
+                            }
+                        }
+                    } else if (tag.contains(key, net.minecraft.nbt.Tag.TAG_COMPOUND)) {
+                        net.minecraft.nbt.CompoundTag nested = tag.getCompound(key);
+                        for (String nKey : candidateKeys) {
+                            if (nested.contains(nKey, net.minecraft.nbt.Tag.TAG_STRING)) {
+                                String val = nested.getString(nKey);
+                                if (!val.isBlank()) {
+                                    String formatted = formatGunName(val);
+                                    if (!formatted.isEmpty() && !isGenericGunName(formatted)) {
+                                        return formatted;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 全キー走査
+                for (String key : tag.getAllKeys()) {
+                    String lower = key.toLowerCase(Locale.ROOT);
+                    if (lower.contains("gunid") || lower.contains("gun_id") || (lower.contains("gun") && !lower.contains("data") && !lower.contains("tag") && !lower.contains("attachment"))) {
+                        if (tag.contains(key, net.minecraft.nbt.Tag.TAG_STRING)) {
+                            String val = tag.getString(key);
+                            if (!val.isBlank()) {
+                                String formatted = formatGunName(val);
+                                if (!formatted.isEmpty() && !isGenericGunName(formatted)) {
+                                    return formatted;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 4. アイテムの表示名 (HoverName)
+        String hoverName = stack.getHoverName().getString();
+        if (hoverName != null && !hoverName.isBlank()) {
+            if (!isGenericGunName(hoverName)) {
+                return hoverName;
+            }
+        }
+
+        // 5. レジストリ名からの抽出フォールバック
+        try {
+            net.minecraft.resources.ResourceLocation regName = net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(stack.getItem());
+            if (regName != null) {
+                String path = regName.getPath();
+                if (!path.equalsIgnoreCase("modern_kinetic_gun") && !path.equalsIgnoreCase("kineticgun")) {
+                    return formatGunName(regName.toString());
+                }
+            }
+        } catch (Throwable ignored) {}
+
+        return (hoverName != null && !hoverName.isBlank() && !isGenericGunName(hoverName)) ? hoverName : "TaCZ Gun";
+    }
+
+    /**
+     * 汎用・未解決の銃器名称かどうか判定
+     */
+    public static boolean isGenericGunName(String name) {
+        if (name == null || name.isBlank()) return true;
+        String lower = name.toLowerCase(Locale.ROOT).trim();
+        return lower.equals("tacz.kineticgun") ||
+                lower.equals("item.tacz.modern_kinetic_gun") ||
+                lower.equals("modern_kinetic_gun") ||
+                lower.equals("kineticgun") ||
+                lower.equals("tacz:modern_kinetic_gun") ||
+                lower.equals("modern kinetic gun") ||
+                lower.equals("item.tacz.modern_kinetic_gun.desc");
     }
 
     public static String formatGunName(String gunId) {
         if (gunId == null || gunId.isBlank()) return "";
+        if (isGenericGunName(gunId)) return "TaCZ Gun";
+
         if (gunId.contains(":")) {
             gunId = gunId.substring(gunId.indexOf(':') + 1);
         }
-        gunId = gunId.replace('_', ' ').trim();
-        if (gunId.equalsIgnoreCase("ak47")) return "AK-47";
-        if (gunId.equalsIgnoreCase("m4a1")) return "M4A1";
-        if (gunId.equalsIgnoreCase("awp")) return "AWP";
-        if (gunId.equalsIgnoreCase("rpk")) return "RPK";
-        if (gunId.equalsIgnoreCase("hk g36c") || gunId.equalsIgnoreCase("g36c")) return "G36C";
-        if (gunId.equalsIgnoreCase("m82a1")) return "M82A1";
-        if (gunId.equalsIgnoreCase("deagle") || gunId.equalsIgnoreCase("desert eagle")) return "Desert Eagle";
-        if (gunId.equalsIgnoreCase("glock 17") || gunId.equalsIgnoreCase("glock17")) return "Glock 17";
-        if (gunId.equalsIgnoreCase("mp5")) return "MP5";
-        if (gunId.equalsIgnoreCase("vector")) return "Kriss Vector";
-        if (gunId.equalsIgnoreCase("p90")) return "P90";
+        gunId = gunId.replace('_', ' ').replace('-', ' ').trim();
+        String lower = gunId.toLowerCase(Locale.ROOT);
 
-        // 各単語の先頭を大文字化
+        // 既知の代表的銃器辞書マッピング
+        // アサルトライフル / カービン
+        if (lower.equals("ak47") || lower.equals("ak 47")) return "AK-47";
+        if (lower.equals("ak74") || lower.equals("ak 74")) return "AK-74";
+        if (lower.equals("akm")) return "AKM";
+        if (lower.equals("aks74u") || lower.equals("aks 74u")) return "AKS-74U";
+        if (lower.equals("m4a1") || lower.equals("m4 a1") || lower.equals("m4")) return "M4A1";
+        if (lower.equals("m16a4") || lower.equals("m16 a4")) return "M16A4";
+        if (lower.equals("m16a1") || lower.equals("m16 a1")) return "M16A1";
+        if (lower.equals("m16")) return "M16";
+        if (lower.equals("hk g36c") || lower.equals("g36c") || lower.equals("g36")) return "G36C";
+        if (lower.equals("hk416") || lower.equals("hk 416")) return "HK416";
+        if (lower.equals("hk417") || lower.equals("hk 417")) return "HK417";
+        if (lower.equals("scar l") || lower.equals("scarl") || lower.equals("fn scar l") || lower.equals("scar")) return "SCAR-L";
+        if (lower.equals("scar h") || lower.equals("scarh") || lower.equals("fn scar h")) return "SCAR-H";
+        if (lower.equals("aug") || lower.equals("aug a3") || lower.equals("steyr aug")) return "AUG";
+        if (lower.equals("famas") || lower.equals("famas f1")) return "FAMAS";
+        if (lower.equals("fal") || lower.equals("fn fal")) return "FN FAL";
+        if (lower.equals("type81") || lower.equals("type 81")) return "Type 81";
+        if (lower.equals("qbz95") || lower.equals("qbz 95")) return "QBZ-95";
+        if (lower.equals("qbz191") || lower.equals("qbz 191")) return "QBZ-191";
+        if (lower.equals("mk47") || lower.equals("mk 47") || lower.equals("mk47 mutant")) return "Mk47 Mutant";
+        if (lower.equals("mk18") || lower.equals("mk 18")) return "Mk18";
+
+        // スナイパー / DMR
+        if (lower.equals("awp") || lower.equals("ai awp")) return "AWP";
+        if (lower.equals("awm") || lower.equals("ai awm")) return "AWM";
+        if (lower.equals("m82a1") || lower.equals("m82") || lower.equals("barrett m82")) return "M82A1";
+        if (lower.equals("m24") || lower.equals("m24 sws")) return "M24";
+        if (lower.equals("svd") || lower.equals("dragunov") || lower.equals("dragunov svd")) return "Dragunov SVD";
+        if (lower.equals("sv98") || lower.equals("sv 98")) return "SV-98";
+        if (lower.equals("sks")) return "SKS";
+        if (lower.equals("sks tactical") || lower.equals("sks tac")) return "SKS Tactical";
+        if (lower.equals("mosin") || lower.equals("mosin nagant")) return "Mosin-Nagant";
+        if (lower.equals("kar98k") || lower.equals("k98k") || lower.equals("kar98")) return "Kar98k";
+        if (lower.equals("mk14") || lower.equals("mk14 ebr") || lower.equals("m14")) return "Mk14 EBR";
+        if (lower.equals("m110") || lower.equals("m110 sass")) return "M110";
+
+        // サブマシンガン (SMG)
+        if (lower.equals("mp5") || lower.equals("hk mp5")) return "MP5";
+        if (lower.equals("mp5sd") || lower.equals("mp5 sd") || lower.equals("hk mp5sd")) return "MP5SD";
+        if (lower.equals("mp7") || lower.equals("hk mp7")) return "MP7";
+        if (lower.equals("mp9")) return "MP9";
+        if (lower.equals("vector") || lower.equals("kriss vector")) return "Kriss Vector";
+        if (lower.equals("p90") || lower.equals("fn p90")) return "P90";
+        if (lower.equals("ump45") || lower.equals("ump 45") || lower.equals("hk ump45")) return "UMP-45";
+        if (lower.equals("ump9") || lower.equals("ump 9") || lower.equals("hk ump9")) return "UMP-9";
+        if (lower.equals("pp19") || lower.equals("pp 19") || lower.equals("bizon")) return "PP-19 Bizon";
+        if (lower.equals("mac10") || lower.equals("mac 10")) return "MAC-10";
+        if (lower.equals("uzi")) return "UZI";
+
+        // ハンドガン (Pistol)
+        if (lower.equals("deagle") || lower.equals("desert eagle")) return "Desert Eagle";
+        if (lower.equals("glock 17") || lower.equals("glock17") || lower.equals("glock")) return "Glock 17";
+        if (lower.equals("glock 18") || lower.equals("glock18")) return "Glock 18";
+        if (lower.equals("cz75") || lower.equals("cz 75")) return "CZ-75";
+        if (lower.equals("cz75 auto") || lower.equals("cz75auto")) return "CZ-75 Auto";
+        if (lower.equals("m1911") || lower.equals("colt 1911") || lower.equals("1911")) return "M1911";
+        if (lower.equals("m9") || lower.equals("beretta m9") || lower.equals("beretta 92fs") || lower.equals("92fs")) return "Beretta M9";
+        if (lower.equals("usp") || lower.equals("hk usp")) return "USP";
+        if (lower.equals("p226") || lower.equals("sig p226") || lower.equals("sig sauer p226")) return "SIG P226";
+        if (lower.equals("fn57") || lower.equals("five seven") || lower.equals("five_seven")) return "Five-seveN";
+        if (lower.equals("tt33") || lower.equals("tt 33") || lower.equals("tokarev")) return "TT-33";
+
+        // ショットガン (Shotgun)
+        if (lower.equals("m870") || lower.equals("remington 870") || lower.equals("remington870")) return "Remington 870";
+        if (lower.equals("m1014") || lower.equals("benelli m1014") || lower.equals("benelli m4")) return "M1014";
+        if (lower.equals("aa12") || lower.equals("aa 12")) return "AA-12";
+        if (lower.equals("spas12") || lower.equals("spas 12")) return "SPAS-12";
+        if (lower.equals("db long") || lower.equals("dblong")) return "DB-Long";
+        if (lower.equals("db short") || lower.equals("dbshort")) return "DB-Short";
+        if (lower.equals("saiga12") || lower.equals("saiga 12")) return "Saiga-12";
+
+        // マシンガン (LMG)
+        if (lower.equals("rpk") || lower.equals("rpk 74") || lower.equals("rpk74")) return "RPK";
+        if (lower.equals("pkm")) return "PKM";
+        if (lower.equals("pkp") || lower.equals("pkp pecheneg")) return "PKP Pecheneg";
+        if (lower.equals("m249") || lower.equals("m249 saw")) return "M249";
+        if (lower.equals("dp28") || lower.equals("dp 28")) return "DP-28";
+        if (lower.equals("mg42") || lower.equals("mg 42")) return "MG42";
+        if (lower.equals("mg3") || lower.equals("mg 3")) return "MG3";
+
+        // 重火器 (Heavy)
+        if (lower.equals("rpg7") || lower.equals("rpg 7") || lower.equals("rpg")) return "RPG-7";
+        if (lower.equals("m79")) return "M79";
+
+        // 一般的な単語フォーマット
         String[] parts = gunId.split("\\s+");
         StringBuilder sb = new StringBuilder();
         for (String part : parts) {
             if (!part.isEmpty()) {
-                sb.append(Character.toUpperCase(part.charAt(0))).append(part.substring(1)).append(" ");
+                String pLower = part.toLowerCase(Locale.ROOT);
+                if (pLower.equals("hk") || pLower.equals("fn") || pLower.equals("cz") || pLower.equals("ak") ||
+                        pLower.equals("ar") || pLower.equals("smg") || pLower.equals("lmg") || pLower.equals("dmr") ||
+                        pLower.equals("rpg") || pLower.equals("sv") || pLower.equals("db") || pLower.equals("aa") ||
+                        pLower.equals("spas") || pLower.equals("mp") || pLower.equals("mk") || pLower.equals("ebr")) {
+                    sb.append(part.toUpperCase(Locale.ROOT)).append(" ");
+                } else if (pLower.matches("^[a-z]+[0-9]+[a-z0-9]*$")) {
+                    sb.append(formatAlphanumericWord(part)).append(" ");
+                } else {
+                    sb.append(Character.toUpperCase(part.charAt(0))).append(part.substring(1)).append(" ");
+                }
             }
         }
         return sb.toString().trim();
+    }
+
+    private static String formatAlphanumericWord(String word) {
+        if (word == null || word.isEmpty()) return "";
+        int firstDigit = -1;
+        for (int i = 0; i < word.length(); i++) {
+            if (Character.isDigit(word.charAt(i))) {
+                firstDigit = i;
+                break;
+            }
+        }
+        if (firstDigit > 0) {
+            String prefix = word.substring(0, firstDigit).toUpperCase(Locale.ROOT);
+            String suffix = word.substring(firstDigit).toUpperCase(Locale.ROOT);
+            if (prefix.length() >= 2) {
+                return prefix + "-" + suffix;
+            } else {
+                return prefix + suffix;
+            }
+        }
+        return word.toUpperCase(Locale.ROOT);
     }
 
     private static boolean isHeadshotFromRecord(TaCZCompatHandler.TaCZHitRecord record) {

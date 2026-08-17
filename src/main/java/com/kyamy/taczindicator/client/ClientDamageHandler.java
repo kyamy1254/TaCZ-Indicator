@@ -265,7 +265,7 @@ public class ClientDamageHandler {
                         boolean isKill = entity.isDeadOrDying() || (currentHealth <= 0.05f);
 
                         String fallbackWeapon = (localPlayer.getMainHandItem() != null && !localPlayer.getMainHandItem().isEmpty())
-                                ? localPlayer.getMainHandItem().getHoverName().getString() : "Melee";
+                                ? com.kyamy.taczindicator.server.DamageEventHandler.resolveWeaponNameFromItemStack(localPlayer.getMainHandItem()) : "Melee";
 
                         // 詳細戦闘統計の記録
                         com.kyamy.taczindicator.client.stats.CombatStatsManager.getInstance().recordDamage(

@@ -117,7 +117,7 @@ public class TaCZCompatHandler {
             }
 
             boolean isArmorPiercing = extractBooleanPropertyDeep(event, "armorpiercing", "armor_piercing", "armorignore", "armor_ignore", "piercing", "ignorearmor");
-            String gunId = extractStringPropertyDeep(event, "gunid", "gun_id", "gunname");
+            String gunId = extractGunIdPropertyDeep(event);
 
             TaCZHitRecord record = new TaCZHitRecord(
                     victimId,
@@ -377,5 +377,146 @@ public class TaCZCompatHandler {
         }
 
         return "";
+    }
+
+    /**
+     * オブジェクト（イベント、エンティティ、弾丸等）から銃器ID (ResourceLocation / String 等) を深層抽出
+     */
+    public static String extractGunIdPropertyDeep(Object obj) {
+        if (obj == null) return "";
+
+        // 1. 直接の抽出 (メソッド・フィールド)
+        String directId = extractIdentifierDeep(obj, "gunid", "gun_id", "gunname", "weaponid", "gunidentifier", "gun");
+        if (!directId.isEmpty()) {
+            return directId;
+        }
+
+        // 2. ネストされたオブジェクト (Bullet, HitResult, GunData, DirectEntity, etc.) の探索
+        Class<?> current = obj.getClass();
+        while (current != null && current != Object.class) {
+            // ネストメソッド探索
+            for (Method m : current.getDeclaredMethods()) {
+                if (m.getParameterCount() == 0) {
+                    String mName = m.getName().toLowerCase(Locale.ROOT);
+                    if (mName.contains("bullet") || mName.contains("directentity") || mName.contains("projectile") ||
+                            mName.contains("gundata") || mName.contains("gunindex") || mName.contains("hitresult") ||
+                            mName.contains("target") || mName.contains("gun")) {
+                        try {
+                            m.setAccessible(true);
+                            Object nested = m.invoke(obj);
+                            if (nested != null && nested != obj) {
+                                String nestedId = extractIdentifierDeep(nested, "gunid", "gun_id", "gunname", "weaponid", "gunidentifier", "gun", "id");
+                                if (!nestedId.isEmpty()) {
+                                    return nestedId;
+                                }
+                            }
+                        } catch (Throwable ignored) {}
+                    }
+                }
+            }
+
+            // ネストフィールド探索
+            for (Field f : current.getDeclaredFields()) {
+                String fName = f.getName().toLowerCase(Locale.ROOT);
+                if (fName.contains("bullet") || fName.contains("directentity") || fName.contains("projectile") ||
+                        fName.contains("gundata") || fName.contains("gunindex") || fName.contains("hitresult") ||
+                        fName.contains("gun")) {
+                    try {
+                        f.setAccessible(true);
+                        Object nested = f.get(obj);
+                        if (nested != null && nested != obj) {
+                            String nestedId = extractIdentifierDeep(nested, "gunid", "gun_id", "gunname", "weaponid", "gunidentifier", "gun", "id");
+                            if (!nestedId.isEmpty()) {
+                                return nestedId;
+                            }
+                        }
+                    } catch (Throwable ignored) {}
+                }
+            }
+
+            current = current.getSuperclass();
+        }
+
+        return "";
+    }
+
+    private static String extractIdentifierDeep(Object obj, String... keywords) {
+        if (obj == null) return "";
+
+        // obj自体がResourceLocation等の識別子型の場合
+        if (isIdentifierType(obj)) {
+            String str = obj.toString();
+            if (isValidGunId(str)) return str;
+        }
+
+        Class<?> current = obj.getClass();
+        while (current != null && current != Object.class) {
+            // メソッド探索
+            for (Method m : current.getDeclaredMethods()) {
+                if (m.getParameterCount() == 0) {
+                    String mName = m.getName().toLowerCase(Locale.ROOT);
+                    for (String kw : keywords) {
+                        if (mName.contains(kw.toLowerCase(Locale.ROOT))) {
+                            try {
+                                m.setAccessible(true);
+                                Object res = m.invoke(obj);
+                                if (res != null) {
+                                    String str = res.toString();
+                                    if (isValidGunId(str)) {
+                                        return str;
+                                    }
+                                }
+                            } catch (Throwable ignored) {}
+                        }
+                    }
+                }
+            }
+
+            // フィールド探索
+            for (Field f : current.getDeclaredFields()) {
+                String fName = f.getName().toLowerCase(Locale.ROOT);
+                for (String kw : keywords) {
+                    if (fName.contains(kw.toLowerCase(Locale.ROOT))) {
+                        try {
+                            f.setAccessible(true);
+                            Object res = f.get(obj);
+                            if (res != null) {
+                                String str = res.toString();
+                                if (isValidGunId(str)) {
+                                    return str;
+                                }
+                            }
+                        } catch (Throwable ignored) {}
+                    }
+                }
+            }
+
+            current = current.getSuperclass();
+        }
+
+        return "";
+    }
+
+    private static boolean isIdentifierType(Object obj) {
+        if (obj == null) return false;
+        if (obj instanceof net.minecraft.resources.ResourceLocation) return true;
+        String clsName = obj.getClass().getName();
+        return clsName.contains("ResourceLocation") || clsName.contains("GunId") || clsName.contains("Identifier");
+    }
+
+    private static boolean isValidGunId(String str) {
+        if (str == null || str.isBlank()) return false;
+        // Object.toString() のデフォルト形式 (例: com.tacz.guns.Gun@1a2b3c) を除外
+        if (str.contains("@") && str.indexOf('@') == str.lastIndexOf('@')) {
+            String beforeAt = str.substring(0, str.indexOf('@'));
+            if (beforeAt.contains(".") && !beforeAt.contains(":")) {
+                return false;
+            }
+        }
+        // 単なる true / false や数値単体を除外
+        if (str.equalsIgnoreCase("true") || str.equalsIgnoreCase("false") || str.equalsIgnoreCase("null")) {
+            return false;
+        }
+        return true;
     }
 }

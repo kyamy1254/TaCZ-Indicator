@@ -629,6 +629,120 @@ public class IndicatorLogicTest {
     }
 
     @Test
+    @DisplayName("TaCZ主要銃器およびカスタム銃器IDの網羅的フォーマット検証")
+    void testComprehensiveGunFormatting() {
+        // アサルトライフル
+        assertEquals("AK-47", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:ak47"));
+        assertEquals("AK-74", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:ak74"));
+        assertEquals("AKM", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:akm"));
+        assertEquals("AKS-74U", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:aks74u"));
+        assertEquals("M4A1", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:m4a1"));
+        assertEquals("M16A4", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:m16a4"));
+        assertEquals("HK416", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:hk416"));
+        assertEquals("SCAR-L", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:scar_l"));
+        assertEquals("SCAR-H", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:scar_h"));
+        assertEquals("AUG", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:aug"));
+        assertEquals("FAMAS", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:famas"));
+        assertEquals("QBZ-95", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:qbz95"));
+        assertEquals("QBZ-191", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:qbz_191"));
+        assertEquals("Mk47 Mutant", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:mk47"));
+        assertEquals("Mk18", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:mk18"));
+
+        // スナイパー / DMR
+        assertEquals("AWP", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:ai_awp"));
+        assertEquals("M82A1", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:m82a1"));
+        assertEquals("Dragunov SVD", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:svd"));
+        assertEquals("SV-98", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:sv98"));
+        assertEquals("SKS", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:sks"));
+        assertEquals("SKS Tactical", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:sks_tactical"));
+        assertEquals("Mosin-Nagant", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:mosin"));
+        assertEquals("Kar98k", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:kar98k"));
+        assertEquals("Mk14 EBR", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:mk14"));
+
+        // SMG / ハンドガン
+        assertEquals("MP5", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:mp5"));
+        assertEquals("MP5SD", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:mp5sd"));
+        assertEquals("MP7", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:mp7"));
+        assertEquals("P90", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:p90"));
+        assertEquals("UMP-45", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:ump45"));
+        assertEquals("Glock 17", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:glock_17"));
+        assertEquals("CZ-75", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:cz75"));
+        assertEquals("CZ-75 Auto", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:cz75_auto"));
+        assertEquals("M1911", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:m1911"));
+        assertEquals("Beretta M9", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:m9"));
+        assertEquals("SIG P226", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:p226"));
+        assertEquals("Five-seveN", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:fn57"));
+
+        // ショットガン / LMG / 重火器
+        assertEquals("Remington 870", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:m870"));
+        assertEquals("M1014", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:m1014"));
+        assertEquals("AA-12", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:aa12"));
+        assertEquals("SPAS-12", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:spas12"));
+        assertEquals("DB-Long", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:db_long"));
+        assertEquals("DB-Short", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:db_short"));
+        assertEquals("RPK", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:rpk"));
+        assertEquals("PKM", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:pkm"));
+        assertEquals("PKP Pecheneg", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:pkp"));
+        assertEquals("M249", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:m249"));
+        assertEquals("DP-28", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:dp28"));
+        assertEquals("MG42", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:mg42"));
+        assertEquals("RPG-7", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("tacz:rpg7"));
+
+        // カスタム銃パック
+        assertEquals("Plasma Rifle", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("custom:plasma_rifle"));
+        assertEquals("Laser Cannon", com.kyamy.taczindicator.server.DamageEventHandler.formatGunName("custom:laser_cannon"));
+    }
+
+    @Test
+    @DisplayName("汎用・未解決銃器名称の判定検証")
+    void testGenericGunNameDetection() {
+        assertTrue(com.kyamy.taczindicator.server.DamageEventHandler.isGenericGunName("tacz.kineticgun"));
+        assertTrue(com.kyamy.taczindicator.server.DamageEventHandler.isGenericGunName("item.tacz.modern_kinetic_gun"));
+        assertTrue(com.kyamy.taczindicator.server.DamageEventHandler.isGenericGunName("Modern Kinetic Gun"));
+        assertTrue(com.kyamy.taczindicator.server.DamageEventHandler.isGenericGunName("tacz:modern_kinetic_gun"));
+        assertTrue(com.kyamy.taczindicator.server.DamageEventHandler.isGenericGunName(""));
+        assertTrue(com.kyamy.taczindicator.server.DamageEventHandler.isGenericGunName(null));
+
+        assertFalse(com.kyamy.taczindicator.server.DamageEventHandler.isGenericGunName("AK-47"));
+        assertFalse(com.kyamy.taczindicator.server.DamageEventHandler.isGenericGunName("M4A1"));
+        assertFalse(com.kyamy.taczindicator.server.DamageEventHandler.isGenericGunName("Diamond Sword"));
+        assertFalse(com.kyamy.taczindicator.server.DamageEventHandler.isGenericGunName("Bow"));
+    }
+
+    @Test
+    @DisplayName("TaCZCompatHandlerのResourceLocation深層抽出検証")
+    void testTaCZCompatHandlerDeepExtraction() {
+        // 1. ResourceLocationを返すモックイベント
+        Object mockEventWithResourceLocation = new Object() {
+            public net.minecraft.resources.ResourceLocation getGunId() {
+                return new net.minecraft.resources.ResourceLocation("tacz", "ak47");
+            }
+        };
+        String extracted = TaCZCompatHandler.extractGunIdPropertyDeep(mockEventWithResourceLocation);
+        assertEquals("tacz:ak47", extracted);
+
+        // 2. ネストされた弾丸オブジェクトを持つモックイベント
+        Object mockEventWithBullet = new Object() {
+            public Object getBullet() {
+                return new Object() {
+                    public net.minecraft.resources.ResourceLocation getGunId() {
+                        return new net.minecraft.resources.ResourceLocation("tacz", "awp");
+                    }
+                };
+            }
+        };
+        String extractedBullet = TaCZCompatHandler.extractGunIdPropertyDeep(mockEventWithBullet);
+        assertEquals("tacz:awp", extractedBullet);
+
+        // 3. 文字列フィールドを持つモック
+        Object mockObjectWithField = new Object() {
+            private final String gunId = "tacz:m4a1";
+        };
+        String extractedField = TaCZCompatHandler.extractGunIdPropertyDeep(mockObjectWithField);
+        assertEquals("tacz:m4a1", extractedField);
+    }
+
+    @Test
     @DisplayName("キル通知の距離表示および連続キルフォーマット検証")
     void testKillAlertFormatting() {
         KillAlertInstance alert = new KillAlertInstance("Zombie", 100);

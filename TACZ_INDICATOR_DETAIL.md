@@ -14,11 +14,16 @@ Minecraft Forge 1.20.1 環境において、TaCZ (Timeless and Classics Zero) �
   - **環境ダメージ誤加算の防止**: `victim.getLastHurtByMob()` による誤判定を完全撤廃し、プレイヤー自身の直接攻撃または発射物によるダメージのみを厳密に抽出。
   - **通常殴りヘッドショット除外**: 近接素手・剣等での通常殴りはヘッドショット対象外とし、銃器射撃・弾丸プロジェクタイルのみに限定。
   - **厳密頭部当たり判定**: 目の高さ $x$ に対して高さ $x - 0.25 < y < x + 0.25$（厳密不等式）、水平面はモブ本来の当たり判定AABBと同一サイズ・位置で3D Ray-Box交差レイキャスト判定を実行。
-  - **武器名の高精度解決**: `TaCZCompatHandler` の `gunId` やプレイヤーのメインハンドアイテムから武器表示名（例: `AK-47`, `M4A1`, `AWP`, `Diamond Sword` 等）を自動整形して解決。
+  - **武器名の多層高精度解決 (Weapon Breakdown)**:
+    1. `TaCZCompatHandler` の `gunId` キャッシュからの抽出。
+    2. 直撃エンティティ (`EntityKineticBullet`) のメソッド/フィールド/NBT (`GunId`) 深層抽出。
+    3. ダメージソース (`DamageSource`) からの抽出。
+    4. プレイヤー手持ちアイテム (`ItemStack`) からの解決 (`IGun.getGunId` リフレクション / NBT `GunId` / `GunData.GunId` 走査 / 汎用名 `tacz.kineticgun` 除外)。
+    5. 網羅的銃器辞書（AK-47, M4A1, AWP, RPK, G36C, M82A1, Desert Eagle, Glock 17, MP5, Kriss Vector, P90, CZ-75, SKS, M16A4, M249, M1014, Remington 870, M1911, Beretta M9, AA-12, SPAS-12, DB-Long, DB-Short, SCAR-L, SCAR-H, FN FAL, UMP-45, MP7, PKM, PKP, DP-28, MG42, Mosin-Nagant, Kar98k, SVD, SV-98, Mk14 EBR, RPG-7, QBZ-95, HK416, AUG 等）およびカスタム銃パック向けインテリジェント大文字・ハイフン整形による自動フォーマット。
   - `DamageIndicatorPacket` にダメージ情報、キル距離（`distanceMeters`）、武器名（`weaponName`）を格納して攻撃者プレイヤーへパケット送信。
 - **`TaCZCompatHandler`**:
   - TaCZが環境に存在する場合、`EntityHurtByGunEvent` (Pre/Post, 各パッケージ階層) や `BulletHitEvent` の動的リスナーを包括的に登録。
-  - クラス階層全体の深層リフレクション走査により、ヘッドショットフラグ、APフラグ、ヘッドショット倍率、銃器IDを高精度に抽出・短期キャッシュ。
+  - クラス階層全体の深層リフレクション走査により、ヘッドショットフラグ、APフラグ、ヘッドショット倍率、銃器ID (`ResourceLocation` 型およびネストされた弾丸オブジェクト `getBullet().getGunId()`) を高精度に抽出・短期キャッシュ。
 - **`ModCommands`**:
   - `/taczstats reset [<targets>]` および `/taczindicator resetstats [<targets>]` コマンドの登録。
   - マルチサーバー環境において、OP管理者またはプレイヤー自身が指定ターゲットまたは全プレイヤー（`@a`）の戦闘統計（DPS・総ダメージ等）を一斉リセット可能。
