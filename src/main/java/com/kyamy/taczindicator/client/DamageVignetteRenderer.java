@@ -159,7 +159,7 @@ public class DamageVignetteRenderer {
                 }
 
                 // 危険度に応じた穏やかなアルファスケーリング (画面端のみ)
-                lowHpAlpha = baseLowHpOpacity * (0.70f + 0.30f * danger) * pulse;
+                lowHpAlpha = baseLowHpOpacity * (0.60f + 0.40f * danger) * pulse;
             }
         }
 
@@ -178,9 +178,9 @@ public class DamageVignetteRenderer {
      * ストロボ点滅を防止し、滑らかなSmoothstepサイン波イージングで上品に脈動
      */
     public static float calculateHeartbeatPulse(double heartbeatSpeed, float danger, long currentTimeMillis) {
-        // 自然な心拍速度 (基礎周波数: 1.1Hz ≈ 66bpm, 危険時: 最大1.6Hz ≈ 96bpm)
-        double speed = heartbeatSpeed * (1.0 + danger * 0.45);
-        double timeSec = (currentTimeMillis % 1000000L) / 1000.0 * speed * 1.1;
+        // 穏やかで落ち着いた心拍速度 (基礎周波数: 1.0Hz ≈ 60bpm, 危険時: 最大1.35Hz ≈ 80bpm)
+        double speed = heartbeatSpeed * (1.0 + danger * 0.35);
+        double timeSec = (currentTimeMillis % 1000000L) / 1000.0 * speed;
 
         // 滑らかな正弦波 (0.0 〜 1.0)
         double sinVal = Math.sin(timeSec * Math.PI * 2.0);
@@ -189,7 +189,7 @@ public class DamageVignetteRenderer {
         // Smoothstep イージング: t^2 * (3 - 2t)
         double smoothEased = normalized * normalized * (3.0 - 2.0 * normalized);
 
-        // 最小下限 0.35（急激な明滅を防ぐ穏やかな下限）から 1.0 へ滑らかに脈動
+        // 最小下限 0.35（淡く穏やかな呼吸）から 1.0 へ滑らかに脈動
         return 0.35f + 0.65f * (float) smoothEased;
     }
 

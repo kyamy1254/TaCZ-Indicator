@@ -460,7 +460,7 @@ public class IndicatorConfig {
 
             damageVignetteOpacity = builder
                     .comment("被ダメージ画面効果の最大不透明度 (0.0: 完全透明/無効, 1.0: 最大不透明度)")
-                    .defineInRange("damageVignetteOpacity", 0.45D, 0.0D, 1.0D);
+                    .defineInRange("damageVignetteOpacity", 0.28D, 0.0D, 1.0D);
 
             damageVignetteDurationTicks = builder
                     .comment("被ダメージ画面効果の表示持続時間（Tick単位: 20Ticks = 1秒）")
@@ -493,7 +493,7 @@ public class IndicatorConfig {
 
             lowHpVignetteOpacity = builder
                     .comment("瀕死時ヴィネット効果の基準不透明度 (0.0 〜 1.0)")
-                    .defineInRange("lowHpVignetteOpacity", 0.45D, 0.0D, 1.0D);
+                    .defineInRange("lowHpVignetteOpacity", 0.22D, 0.0D, 1.0D);
 
             enableLowHpHeartbeat = builder
                     .comment("瀕死時に心臓の鼓動のような脈動アニメーション（パルス）を適用するかどうか")
@@ -670,7 +670,7 @@ public class IndicatorConfig {
             try { return enableDamageVignette != null && enableDamageVignette.get(); } catch (Exception e) { return true; }
         }
         public double getDamageVignetteOpacity() {
-            try { return damageVignetteOpacity != null ? damageVignetteOpacity.get() : 0.45D; } catch (Exception e) { return 0.45D; }
+            try { return damageVignetteOpacity != null ? damageVignetteOpacity.get() : 0.28D; } catch (Exception e) { return 0.28D; }
         }
         public int getDamageVignetteDurationTicks() {
             try { return damageVignetteDurationTicks != null ? damageVignetteDurationTicks.get() : 20; } catch (Exception e) { return 20; }
@@ -688,7 +688,7 @@ public class IndicatorConfig {
             try { return lowHpThreshold != null ? lowHpThreshold.get() : 0.30D; } catch (Exception e) { return 0.30D; }
         }
         public double getLowHpVignetteOpacity() {
-            try { return lowHpVignetteOpacity != null ? lowHpVignetteOpacity.get() : 0.45D; } catch (Exception e) { return 0.45D; }
+            try { return lowHpVignetteOpacity != null ? lowHpVignetteOpacity.get() : 0.22D; } catch (Exception e) { return 0.22D; }
         }
         public boolean isLowHpHeartbeatEnabled() {
             try { return enableLowHpHeartbeat != null && enableLowHpHeartbeat.get(); } catch (Exception e) { return true; }

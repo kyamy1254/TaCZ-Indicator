@@ -127,11 +127,11 @@ Minecraft Forge 1.20.1 環境において、TaCZ (Timeless and Classics Zero) �
 | 項目名 | 型 | デフォルト値 | 説明 |
 | :--- | :--- | :--- | :--- |
 | `enableDamageVignette` | boolean | `true` | 被ダメージ時の赤色ヴィネット効果を有効化 |
-| `damageVignetteOpacity` | double | `0.45` | 被ダメージ赤色効果の基準不透明度 (0.0〜1.0) |
+| `damageVignetteOpacity` | double | `0.28` | 被ダメージ赤色効果の基準不透明度 (0.0〜1.0) |
 | `damageVignetteDurationTicks` | int | `20` | 被ダメージ赤色効果の持続・フェード時間 (20Ticks = 1.0秒) |
 | `enableLowHpVignette` | boolean | `true` | 瀕死時 (Low HP) の赤色ヴィネット効果を有効化 |
 | `lowHpThreshold` | double | `0.30` | 瀕死判定の体力割合閾値 (0.30 = 最大HPの30%以下 / ハート3個以下) |
-| `lowHpVignetteOpacity` | double | `0.45` | 瀕死時ヴィネット効果の基準不透明度 (0.0〜1.0) |
+| `lowHpVignetteOpacity` | double | `0.22` | 瀕死時ヴィネット効果の基準不透明度 (0.0〜1.0) |
 | `enableLowHpHeartbeat` | boolean | `true` | 瀕死時に心臓の鼓動のような脈動アニメーション（パルス）を適用 |
 | `lowHpHeartbeatSpeed` | double | `1.0` | 瀕死時鼓動アニメーションの脈動速度倍率 (0.2〜3.0) |
 
