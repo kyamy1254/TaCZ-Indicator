@@ -15,13 +15,13 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
 /**
- * プレイヤー被ダメージ時の画面赤色効果（ダメージヴィネット・画面フラッシュ）レンダラー
- * バニラVignetteテクスチャを用いた完全な円形・楕円スムーズフェード、設定プレビュー、およびカラーカスタマイズを完備
+ * プレイヤー被ダメージ時および瀕死時(Low HP)の画面効果（ヴィネット）レンダラー
+ * 専用の高品位白マスクテクスチャ、滑らかな生体呼吸・鼓動パルス、および鮮やかなカラーカスタマイズを完備
  */
 @Mod.EventBusSubscriber(modid = TaCZIndicatorMod.MOD_ID, value = Dist.CLIENT)
 public class DamageVignetteRenderer {
 
-    private static final ResourceLocation VIGNETTE_LOCATION = new ResourceLocation("textures/misc/vignette.png");
+    private static final ResourceLocation VIGNETTE_LOCATION = new ResourceLocation(TaCZIndicatorMod.MOD_ID, "textures/gui/vignette.png");
 
     private static int vignetteTicksRemaining = 0;
     private static int maxVignetteDuration = 15;
@@ -126,6 +126,7 @@ public class DamageVignetteRenderer {
         lastRenderTime = now;
 
         float hitAlpha = 0.0f;
+        float hitFlashAlpha = 0.0f;
         int hitColor = IndicatorConfig.getDamageVignetteColor();
 
         // 1. 被ダメージ時の一時的フェードアウト赤色効果
@@ -134,9 +135,11 @@ public class DamageVignetteRenderer {
             progress = Math.max(0.0f, Math.min(1.0f, progress));
             float baseOpacity = (float) IndicatorConfig.getDamageVignetteOpacity();
             hitAlpha = progress * progress * baseOpacity * currentDamageIntensity;
+            // 瞬間的な極微細フラッシュ（中心視認性を損なわない最大0.06以下の極薄）
+            hitFlashAlpha = hitAlpha * 0.08f;
         }
 
-        // 2. 瀕死時 (Low HP) の持続的・心臓鼓動赤色効果
+        // 2. 瀕死時 (Low HP) の持続的・滑らかな生体呼吸/鼓動赤色効果
         float lowHpAlpha = 0.0f;
         int lowHpColor = IndicatorConfig.getLowHpVignetteColor();
 
@@ -152,31 +155,56 @@ public class DamageVignetteRenderer {
 
                 float pulse = 1.0f;
                 if (IndicatorConfig.isLowHpHeartbeatEnabled()) {
-                    double speed = IndicatorConfig.getLowHpHeartbeatSpeed() * (1.0 + danger * 0.7);
-                    double timeSec = (System.currentTimeMillis() % 100000L) / 1000.0 * speed * 2.2;
-                    double sinVal = Math.sin(timeSec * Math.PI * 2.0);
-                    // 0.40 〜 1.0 の間でリズミカルに脈動
-                    pulse = 0.40f + 0.60f * (float) Math.max(0.0, Math.pow(Math.max(0.0, sinVal), 2.2));
+                    pulse = calculateHeartbeatPulse(IndicatorConfig.getLowHpHeartbeatSpeed(), danger, System.currentTimeMillis());
                 }
 
-                lowHpAlpha = baseLowHpOpacity * (0.65f + 0.35f * danger) * pulse;
+                // 危険度に応じた穏やかなアルファスケーリング (画面端のみ)
+                lowHpAlpha = baseLowHpOpacity * (0.70f + 0.30f * danger) * pulse;
             }
         }
 
-        float totalAlpha = Math.min(1.0f, hitAlpha + lowHpAlpha);
-        if (totalAlpha <= 0.005f) {
+        float totalVignetteAlpha = Math.min(1.0f, hitAlpha + lowHpAlpha);
+        if (totalVignetteAlpha <= 0.005f && hitFlashAlpha <= 0.005f) {
             return;
         }
 
         int finalColor = (hitAlpha > lowHpAlpha) ? hitColor : lowHpColor;
-        drawVignetteOverlay(guiGraphics, screenWidth, screenHeight, totalAlpha, finalColor);
+        // Low HP時は全画面フラッシュを行わず、被ダメ時のhitFlashAlphaのみを適用
+        drawVignetteOverlay(guiGraphics, screenWidth, screenHeight, totalVignetteAlpha, finalColor, hitFlashAlpha);
     }
 
     /**
-     * バニラVignetteテクスチャを用いた美しい円形グラデーションヴィネットおよび画面フラッシュを描画
+     * 自然で滑らかな生体呼吸・心拍パルス（0.35〜1.0）の計算
+     * ストロボ点滅を防止し、滑らかなSmoothstepサイン波イージングで上品に脈動
      */
-    public static void drawVignetteOverlay(GuiGraphics guiGraphics, int width, int height, float alpha, int rgb) {
-        if (alpha <= 0.005f) {
+    public static float calculateHeartbeatPulse(double heartbeatSpeed, float danger, long currentTimeMillis) {
+        // 自然な心拍速度 (基礎周波数: 1.1Hz ≈ 66bpm, 危険時: 最大1.6Hz ≈ 96bpm)
+        double speed = heartbeatSpeed * (1.0 + danger * 0.45);
+        double timeSec = (currentTimeMillis % 1000000L) / 1000.0 * speed * 1.1;
+
+        // 滑らかな正弦波 (0.0 〜 1.0)
+        double sinVal = Math.sin(timeSec * Math.PI * 2.0);
+        double normalized = (sinVal + 1.0) * 0.5;
+
+        // Smoothstep イージング: t^2 * (3 - 2t)
+        double smoothEased = normalized * normalized * (3.0 - 2.0 * normalized);
+
+        // 最小下限 0.35（急激な明滅を防ぐ穏やかな下限）から 1.0 へ滑らかに脈動
+        return 0.35f + 0.65f * (float) smoothEased;
+    }
+
+    /**
+     * 高品位白マスクテクスチャを用いた美しい円形グラデーションヴィネットを描画
+     */
+    public static void drawVignetteOverlay(GuiGraphics guiGraphics, int width, int height, float vignetteAlpha, int rgb) {
+        drawVignetteOverlay(guiGraphics, width, height, vignetteAlpha, rgb, 0.0f);
+    }
+
+    /**
+     * 高品位白マスクテクスチャを用いた美しい円形グラデーションヴィネットおよび瞬間被ダメフラッシュを描画
+     */
+    public static void drawVignetteOverlay(GuiGraphics guiGraphics, int width, int height, float vignetteAlpha, int rgb, float flashAlpha) {
+        if (vignetteAlpha <= 0.005f && flashAlpha <= 0.005f) {
             return;
         }
 
@@ -184,23 +212,27 @@ public class DamageVignetteRenderer {
         float g = ((rgb >> 8) & 0xFF) / 255.0f;
         float b = (rgb & 0xFF) / 255.0f;
 
-        // 画面全体の極薄フラッシュ
-        int flashAlpha = Math.max(0, Math.min(255, (int) (alpha * 0.15f * 255.0f)));
-        if (flashAlpha > 0) {
-            int flashColor = (flashAlpha << 24) | (((int) (r * 255)) << 16) | (((int) (g * 255)) << 8) | ((int) (b * 255));
-            guiGraphics.fill(0, 0, width, height, flashColor);
+        // 1. 被ダメージ瞬間の一時的極薄フラッシュ（Low HP鼓動時は常に0%・視界クリア）
+        if (flashAlpha > 0.005f) {
+            int fAlpha = Math.max(0, Math.min(255, (int) (flashAlpha * 255.0f)));
+            if (fAlpha > 0) {
+                int flashColor = (fAlpha << 24) | (((int) (r * 255)) << 16) | (((int) (g * 255)) << 8) | ((int) (b * 255));
+                guiGraphics.fill(0, 0, width, height, flashColor);
+            }
         }
 
-        // バニラ準拠の完全な円形・楕円グラデーションヴィネット
-        RenderSystem.disableDepthTest();
-        RenderSystem.depthMask(false);
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.setShaderColor(r, g, b, Math.min(1.0f, alpha));
-        guiGraphics.blit(VIGNETTE_LOCATION, 0, 0, -90, 0.0F, 0.0F, width, height, width, height);
-        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-        RenderSystem.depthMask(true);
-        RenderSystem.enableDepthTest();
+        // 2. 高品位白マスクテクスチャによる滑らかな赤色/カスタムカラーヴィネット描画 (画面端のみ)
+        if (vignetteAlpha > 0.005f) {
+            RenderSystem.disableDepthTest();
+            RenderSystem.depthMask(false);
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
+            RenderSystem.setShaderColor(r, g, b, Math.min(1.0f, vignetteAlpha));
+            guiGraphics.blit(VIGNETTE_LOCATION, 0, 0, -90, 0.0F, 0.0F, width, height, width, height);
+            RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+            RenderSystem.depthMask(true);
+            RenderSystem.enableDepthTest();
+        }
     }
 
     /**
@@ -210,26 +242,25 @@ public class DamageVignetteRenderer {
         if (configuredOpacity <= 0.005 && previewTicksRemaining <= 0) return;
 
         float alpha;
+        float flashAlpha = 0.0f;
         if (previewTicksRemaining > 0) {
             if (isPreviewLowHp) {
                 // 瀕死時鼓動シミュレーション
-                double speed = previewHeartbeatSpeed * 2.2;
-                double timeSec = (System.currentTimeMillis() % 100000L) / 1000.0 * speed;
-                double sinVal = Math.sin(timeSec * Math.PI * 2.0);
-                float pulse = 0.40f + 0.60f * (float) Math.max(0.0, Math.pow(Math.max(0.0, sinVal), 2.2));
+                float pulse = calculateHeartbeatPulse(previewHeartbeatSpeed, 0.5f, System.currentTimeMillis());
                 alpha = previewOpacity * pulse;
             } else {
                 // 被ダメ単発フェードアウト
                 float progress = (previewTicksRemaining - partialTick) / (float) previewMaxDuration;
                 progress = Math.max(0.0f, Math.min(1.0f, progress));
                 alpha = progress * progress * previewOpacity;
+                flashAlpha = alpha * 0.08f;
             }
         } else {
             // アイドル時の淡い常時プレビュー
             alpha = (float) (configuredOpacity * 0.35);
         }
 
-        drawVignetteOverlay(guiGraphics, width, height, alpha, rgb);
+        drawVignetteOverlay(guiGraphics, width, height, alpha, rgb, flashAlpha);
     }
 
     public static void reset() {

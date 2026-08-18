@@ -69,7 +69,10 @@ Minecraft Forge 1.20.1 環境において、TaCZ (Timeless and Classics Zero) �
 - **`DamageIndicatorRenderer`**:
   - `RenderLevelStageEvent` による3Dワールド空間描画（WORLD_3Dモード時・アニメーション物理補間対応）。
 - **`DamageVignetteRenderer`**:
-  - プレイヤーがダメージを受けた際に、画面四隅からの美しいグラデーションヴィネット（および画面フラッシュ）を描画。
+  - プレイヤーが被ダメージした際、および瀕死時（Low HP時）に画面端へ赤色ヴィネット効果を描画。
+  - **専用高品位白マスク (`assets/taczindicator/textures/gui/vignette.png`)**: バニラの黒テクスチャ依存による黒色化問題を解消し、純白アルファマスクにより設定カラー（赤色/カスタムRGB）を鮮やかかつ滑らかに描画。
+  - **視認性保護（中央透過）**: Low HP時の鼓動では画面中央のエイムやクロスヘアを遮断する全画面フィルを行わず、画面端のみの穏やかな呼吸パルスに制限。
+  - **生体呼吸・鼓動パルス (Smoothstep Easing)**: ストロボのような急激な点滅を防止し、自然な心拍・呼吸カーブ（下限0.35〜上限1.0）で上品に脈動。
 - **`IndicatorConfigScreen`**:
   - ゲーム内設定GUI画面。タブ切り替えバー（全般/HUD/演出/サウンド）、カラーテーマ即時プレビュー、アニメーション切り替え、DPSメーター調整、詳細統計画面へのリンク、ドラッグ位置調整を完備。
 
@@ -78,6 +81,8 @@ Minecraft Forge 1.20.1 環境において、TaCZ (Timeless and Classics Zero) �
 - **ビットマップフォント定義 (`assets/minecraft/font/default.json`, `assets/taczindicator/font/default.json`)**:
   - `\uE001`: 防具軽減（通常盾）アイコン (`textures/font/shield.png`・純白アルファマスク化・ゲーム内水色 `§b` 表示)
   - `\uE002`: 防具貫通（盾貫通）アイコン (`textures/font/shield_penetration.png`・純白アルファマスク化・ゲーム内白 `§f` 表示)
+- **専用ヴィネットマスク (`assets/taczindicator/textures/gui/vignette.png`)**:
+  - 512x512 高解像度・楕円スムーズステップ減衰の純白アルファマスク。中央広域が完全透過（視認性確保）、画面端に向かって滑らかにアルファ値が立ち上がる構造。
 
 ## 3. ヘッドショット判定ロジック
 

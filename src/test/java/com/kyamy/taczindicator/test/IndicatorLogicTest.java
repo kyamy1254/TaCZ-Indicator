@@ -1,5 +1,6 @@
 package com.kyamy.taczindicator.test;
 
+import com.kyamy.taczindicator.client.DamageVignetteRenderer;
 import com.kyamy.taczindicator.client.model.KillAlertInstance;
 import com.kyamy.taczindicator.server.TaCZCompatHandler;
 import org.junit.jupiter.api.DisplayName;
@@ -282,6 +283,26 @@ public class IndicatorLogicTest {
         float progressEnd = remaining / (float) maxDuration;
         float alphaEnd = progressEnd * progressEnd * (float) baseOpacity * damageIntensity;
         assertEquals(0.0f, alphaEnd, 1e-4);
+    }
+
+    @Test
+    @DisplayName("瀕死時(Low HP)鼓動・生体呼吸パルス計算の検証")
+    void testLowHpHeartbeatPulseCalculation() {
+        double heartbeatSpeed = 1.0;
+        float danger = 0.5f;
+
+        // 1. 各時刻におけるパルス値が必ず [0.35, 1.0] の範囲に収まることを検証
+        for (long t = 0; t <= 2000; t += 50) {
+            float pulse = DamageVignetteRenderer.calculateHeartbeatPulse(heartbeatSpeed, danger, t);
+            assertTrue(pulse >= 0.3499f && pulse <= 1.0001f,
+                    "パルス値は下限0.35から上限1.0の範囲内で滑らかに変動するべき (実際: " + pulse + ")");
+        }
+
+        // 2. 危険度0%の時と100%の時の計算が安定していること
+        float pulseMinDanger = DamageVignetteRenderer.calculateHeartbeatPulse(1.0, 0.0f, 500);
+        float pulseMaxDanger = DamageVignetteRenderer.calculateHeartbeatPulse(1.0, 1.0f, 500);
+        assertTrue(pulseMinDanger >= 0.35f && pulseMinDanger <= 1.0f);
+        assertTrue(pulseMaxDanger >= 0.35f && pulseMaxDanger <= 1.0f);
     }
 
     @Test
